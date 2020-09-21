@@ -2,41 +2,43 @@ require 'set'
 
 header = STDIN.readline.chomp
 header_list = header.split(',')
-classification_name = header_list[0]
-measurement_names = header_list[1..-1]
+class_name = header_list[0]
+measurement_names = Set.new header_list[1..-1]
 
-classifications = Set.new()
-indexes_measurements = measurement_names.each_with_index.collect { |k, v| [v, k] }.to_h
-measurements = measurement_names.collect { |name| [name, Set.new()] }.to_h
-dataset_classifications_count = {}
-dataset_dimensions_count = measurement_names.collect { |name| [name, {}] }.to_h
+classes = Set.new
+measurements = measurement_names.collect { |name| [name, Set.new] }.to_h
+dataset_classes_count = {}
+dataset_measurements_count = measurement_names.collect { |name| [name, {}] }.to_h
 
-dataset_classifications_and_measurements_count = {}
+dataset_classes_and_measurements_count = {}
+
+dataset_measurements_classes_count = {}
 
 STDIN.each_line do |line|
   values = line.chomp.split(',')
-  classification_value = values[0]
-  classifications.add classification_value
-  dataset_classifications_count[classification_value] ||= 0
-  dataset_classifications_count[classification_value] += 1
-  measurements_values = values[1..-1]
-  measurements_values.each_with_index do |measurement_value, index|
-    measurement_name = indexes_measurements[index]
+  class_value, *measurement_values = values
+  classes.add class_value
+  dataset_classes_count[class_value] ||= 0
+  dataset_classes_count[class_value] += 1
+  current_measurements = measurement_names.zip measurement_values
+  next if measurement_values.include?('.') || measurement_values.include?('NA')
+  dataset_measurements_classes_count[measurement_values] ||= {}
+  dataset_measurements_classes_count[measurement_values][class_value] ||= 0
+  dataset_measurements_classes_count[measurement_values][class_value] += 1
+  current_measurements.each do |measurement_name, measurement_value|
     measurements[measurement_name].add measurement_value
-    dataset_dimensions_count[measurement_name][measurement_value] ||= 0
-    dataset_dimensions_count[measurement_name][measurement_value] += 1
+    dataset_measurements_count[measurement_name][measurement_value] ||= 0
+    dataset_measurements_count[measurement_name][measurement_value] += 1
 
-    dataset_classifications_and_measurements_count[classification_value] ||= {}
-    dataset_classifications_and_measurements_count[classification_value][measurement_name] ||= {}
-    dataset_classifications_and_measurements_count[classification_value][measurement_name][measurement_value] ||= 0
-    dataset_classifications_and_measurements_count[classification_value][measurement_name][measurement_value] += 1
+    dataset_classes_and_measurements_count[class_value] ||= {}
+    dataset_classes_and_measurements_count[class_value][measurement_name] ||= {}
+    dataset_classes_and_measurements_count[class_value][measurement_name][measurement_value] ||= 0
+    dataset_classes_and_measurements_count[class_value][measurement_name][measurement_value] += 1
   end
 end
 
-
-
-puts "K = {#{classifications.to_a.join(', ')}}"
-puts "|K| = #{classifications.size}"
+puts "K = {#{classes.to_a.join(', ')}}"
+puts "|K| = #{classes.size}"
 
 puts "N = #{measurements.size}"
 
@@ -45,44 +47,71 @@ measurements.each_with_index do |(name, values), index|
   puts "D#{dimension} = {#{values.to_a.join(', ')}}. M#{dimension} = |D#{dimension}| = #{values.size}"
 end
 
-dataset_total_count = dataset_classifications_count.values.inject(:+)
-prior_probabilities = dataset_classifications_count.collect do |name, amount|
+dataset_total_count = dataset_classes_count.values.inject(:+)
+prior_pr = dataset_classes_count.collect do |name, amount|
   [name, 1.0 * amount/dataset_total_count]
 end.to_h
 
-prior_probabilities.each do |name, value|
+prior_pr.each do |name, value|
   puts "P(C=#{name}) = #{value}"
 end
 
-def p_classification_given_measurement(classification_name, measurement_name, measurement_value, dataset_classifications_and_measurements_count)
-  positive_cases = dataset_classifications_and_measurements_count[classification_name][measurement_name][measurement_value]
-  # p positive_cases
-  total_cases = dataset_classifications_and_measurements_count[classification_name][measurement_name].values.inject(:+)
-  # p total_cases
+def pr_yx_for(class_name, measurement_name, measurement_value, dataset_classes_and_measurements_count)
+  positive_cases = dataset_classes_and_measurements_count[class_name][measurement_name][measurement_value]
+  return 0.0 unless positive_cases
+  total_cases = dataset_classes_and_measurements_count[class_name][measurement_name].values.inject(:+)
   1.0 * positive_cases / total_cases
 end
 
-def p_measurement(measurement_name, measurement_value, dataset_dimensions_count)
-  positive_cases = dataset_dimensions_count[measurement_name][measurement_value]
-  # p positive_cases
-  total_cases = dataset_dimensions_count[measurement_name].values.inject(:+)
-  # p total_cases
+def pr_x_for(measurement_name, measurement_value, dataset_measurements_count)
+  positive_cases = dataset_measurements_count[measurement_name][measurement_value]
+  return 0.0 unless positive_cases
+  total_cases = dataset_measurements_count[measurement_name].values.inject(:+)
   1.0 * positive_cases / total_cases
 end
 
-def p_measurement_given_classification(measurement_name, measurement_value, classification_name, dataset_classifications_and_measurements_count, dataset_dimensions_count)
-  p_classification_given_measurement = p_classification_given_measurement(classification_name, measurement_name, measurement_value, dataset_classifications_and_measurements_count)
-  p_measurement = p_measurement(measurement_name, measurement_value, dataset_dimensions_count)
-  p_classification_given_not_measurement = 1.0 - p_classification_given_measurement
-  p_not_measurement = 1.0 - p_measurement
-  (p_classification_given_measurement * p_measurement) / (p_classification_given_measurement * p_measurement + p_classification_given_not_measurement + p_not_measurement)
+def pr_xy_for(measurement_name, measurement_value, class_name, dataset_classes_and_measurements_count, dataset_measurements_count)
+  pr_yx = pr_yx_for(class_name, measurement_name, measurement_value, dataset_classes_and_measurements_count)
+  pr_x = pr_x_for(measurement_name, measurement_value, dataset_measurements_count)
+  pr_y_nx = 1.0 - pr_yx
+  pr_nx = 1.0 - pr_x
+  (pr_yx * pr_x) / (pr_yx * pr_x + pr_y_nx + pr_nx)
 end
 
-dataset_classifications_and_measurements_count.each do |classification_name, measurements_count|
-  measurements_count.each do |measurement_name, measurement_values_count|
-    measurement_values_count.each do |measurement_value, _|
-      value = p_measurement_given_classification(measurement_name, measurement_value, classification_name, dataset_classifications_and_measurements_count, dataset_dimensions_count)
-      puts "P(#{measurement_name}=#{measurement_value} | C=#{classification_name}) = #{value}"
-    end
+def e_for(true_class_name, assigned_class_name)
+  true_class_name == assigned_class_name ? 1 : -1
+end
+
+def pr_yX_for(class_name, measurements, prior_pr, dataset_classes_and_measurements_count, dataset_measurements_count, dataset_measurements_classes_count)
+  # P(d | c)
+  # pr_Xy = measurements.collect do |measurement_name, measurement_value|
+  #   # p [measurement_name, measurement_value, class_name, pr_xy_for(measurement_name, measurement_value, class_name, dataset_classes_and_measurements_count, dataset_measurements_count)]
+  #   pr_xy_for measurement_name, measurement_value, class_name, dataset_classes_and_measurements_count, dataset_measurements_count
+  #
+  # end.inject(:*)
+
+  pr_Xy = if dataset_measurements_classes_count.dig measurements.values, class_name
+    1.0 * dataset_measurements_classes_count.dig(measurements.values, class_name) / dataset_measurements_classes_count.dig(measurements.values).values.inject(:+)
+  else
+    0.0
   end
+
+  # P(c)
+  pr_y = prior_pr[class_name]
+
+  # pr_X_ny = measurements.keys.collect do |measurement_name, measurement_value|
+  #   1.0 - pr_xy_for(measurement_name, measurement_value, class_name, dataset_classes_and_measurements_count, dataset_measurements_count)
+  # end.inject(:*)
+
+  pr_X_ny = 1 - pr_Xy
+
+  pr_X = pr_Xy * pr_y + pr_X_ny * (1.0 - pr_y)
+
+  pr_Xy * pr_y / pr_X
+end
+
+classes.to_a.product(*measurements.values.collect(&:to_a)).each do |class_name, *measurement_values|
+  current_measurements = measurement_names.zip(measurement_values).to_h
+  value = pr_yX_for class_name, current_measurements, prior_pr, dataset_classes_and_measurements_count, dataset_measurements_count, dataset_measurements_classes_count
+  puts "Pr(c = #{class_name} | x = { #{current_measurements.values.join(', ')} }) = #{value}"
 end
