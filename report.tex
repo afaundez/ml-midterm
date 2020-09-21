@@ -1,0 +1,62 @@
+\documentclass[12pt]{article}
+\usepackage{mathabx}
+
+\begin{document}
+
+\title{ML Mid Term Project}
+\author{Alvaro Faundez}
+\maketitle
+
+\section*{Measurement Space}
+
+\begin{description}
+	\item[species] penguin species
+	\item[island] island name
+	\item[culmen\_length\_mm] culmen length in mm
+	\item[culmen\_depth\_mm] culmen depth in mm
+	\item[flipper\_length\_mm] flipper length in mm
+	\item[body\_mass\_g] body mass in grams
+	\item[sex] penguin sex
+\end{description}
+
+\paragraph{Measurement Space}
+
+\begin{equation}
+M = 􏰡\bigtimes_{n=1}^N L_{n}
+\end{equation}
+
+
+\begin{itemize}
+	\item Measurement $d$ has $N$ components $d = (d_1,...,d_N)$
+		\begin{itemize}
+			\item $d_1 = d_{island} = \{Biscoe, Dream, Torgersen\}$
+			\item $d_2 =  d_{culmen\_length} = {\rm I\!R}_{\geq 0}?$
+			\item $d_3 = d_{culmen\_depth} = {\rm I\!R}_{\geq 0}?$
+			\item $d_4 = d_{flipper\_depth} = {\rm I\!R}_{\geq 0}?$
+			\item $d_5 = d_{body\_mass} = {\rm I\!R}_{\geq 0}?$
+			\item $d_6 = d_{sex} = \{Female, Male, N\!A\}$
+		\end{itemize}
+	\item Input $|L_n| = M_n, n = 1,...,N;$
+	\item The program should then know that $L_n = \{0,...,M_{n}-1\}$
+\end{itemize}
+
+\section*{Linear Address}
+
+Given $(d_1, ... , d_N)$ compute the linear address.
+
+\section*{Classes}
+
+Input K , The Number of Classes.
+
+$K_{species} = \{Adelie, Chinstrap, Gentoo\}$
+
+\section*{Economic Gain Matrix}
+
+Input $e$ the $K \times K$ economic gain matrix.
+
+\section*{Class Conditional / Dataset}
+
+Input either $P(d|c)$, the class conditional probabilities or the data set $(\langle x_1,...,x_Z\rangle,\langle c_1,...c_Z\rangle)$
+Input P(c) the prior probabilities Compute P(c | d)
+Compute the Discrete Bayes Rule fd (c) Compute the K × K Confusion Matrix Compute the Expected Gain
+\end{document}
