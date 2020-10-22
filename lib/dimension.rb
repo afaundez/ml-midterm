@@ -4,11 +4,12 @@ require 'matrix'
 
 # Dimension
 class Dimension
-  attr_accessor :size, :pdf, :cdf
+  attr_accessor :size, :pdf, :cdf, :distribution
 
-  def initialize(size)
+  def initialize(size, distribution: :random)
     @size = size
-    @pdf = self.class.build_pdf @size
+    @distribution = distribution
+    @pdf = self.class.build_pdf @size, distribution: @distribution
     @cdf = self.class.build_cdf @pdf
   end
 
@@ -21,12 +22,21 @@ class Dimension
   end
 
   def self.normalize(vector)
+    return vector if vector.zero?
+
     sum = vector.sum
+    return vector if sum == 1
+    
     vector / sum
   end
 
-  def self.build_pdf(size)
-    numbers = size.times.collect { rand }
+  def self.build_pdf(size, distribution: :random)
+    numbers = size.times.collect do
+      case distribution
+      when :uniform then 1 / size.to_f
+      else rand
+      end
+    end
     vector = Vector.elements numbers
     normalize vector
   end
