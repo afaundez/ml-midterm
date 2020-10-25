@@ -1,0 +1,106 @@
+\documentclass[letterpaper, conference]{IEEEtran}
+
+\begin{document}
+
+\title{ML Midterm Report}
+
+\author{
+  \IEEEauthorblockN{Alvaro Faundez}
+  \IEEEauthorblockA{
+    \textit{Master in Data Science, first year}\\
+    \textit{CUNY Graduate Center}\\
+    \textit{alvaro@faundez.net}
+  }
+}
+
+\maketitle
+
+\begin{abstract}
+The midterm project consists of the implementation of a bayesian classifier. The subroutines include a dataset generator, training based on, and optimization of class conditional probabilities to maximize the expected gain. This report describes the steps that generate pseudo-random probabilities distributions, the dataset generation, the calculation of the Bayes decision rule, confusion matrix, and expected gain. The experimental results show that a 100\% expected gain is achievable in a few optimizations iterations.
+\end{abstract}
+
+\section{Introduction}
+
+The Bayesian classifier is a popular predictive classifier broadly used in Machine Learning. Given a set with classes
+
+\begin{equation}
+C = \{c_!, ..., c_K\}
+\end{equation}
+
+and a measurement space
+
+\begin{equation}
+D = \times_{n=1}^{N}M_n
+\end{equation}
+
+the objective is to assigned a class $c \in C$ for a specific measurement $d \in D$.
+
+The key step for the building of the Bayes decision rule is calculate the posterior probability:
+
+\begin{equation}
+P(c \mid d) \propto P(d \mid c) \times P(c)
+\end{equation}
+
+and use the economic gain matrix $e(c_j, c_k)$ to determine the $c$ with the highest economic gain.
+
+This report details the implementation of a Bayesian classifier from scratch in the Ruby language, without any external scientific library. The subroutines include:
+\begin{itemize}
+  \item class and measurement dimensions definitions, including pseudo-random probabilities and cumulative distribution functions
+  \item space definition, calculating linear addresses, class conditional probabilities
+  \item data set definition, in charge of the prior probabilities, the Bayes decision rule, the confusion matrix, and the expected gain
+\end{itemize}
+
+These definitions provide tools to train and tests with multiple pseudo-random generated datasets. The random seed is configurable by the user to get the same result in any iteration.
+
+The classifier can be optimized after the training, maximizing the expected gain, modifying the class conditional probabilities using, and arbitrary $\Delta$.
+
+The experimental results achieve a 100\% expecting gain after only a couple of iterations.
+
+
+\section{Technical}
+
+
+Explain anything you need to explain about the problem be-
+ing worked
+
+Explain the features in a clear enough way that somebody can replicate the computation of the features
+
+Explain the methods used to classify, including all the tuning or default parameter values
+
+\subsection{Space dimensions}
+
+The space setup consists in three parameters:
+
+\begin{itemize}
+\item Classes Cardinality
+\item Measurements space
+\item Measurements Cardinalities
+\end{itemize}
+
+\subsection{Data Sets}
+\begin{itemize}
+\item Sample size
+\end{itemize}
+
+\subsection{Classifier}
+\begin{itemize}
+\item{Bayes Decision Rule}
+\item{Confusion Matrix}
+\item{Expected Gain}
+\end{itemize}
+
+\subsection{Data Sets}
+\begin{itemize}
+\item Training
+\item Optimization (if necessary)
+\item Testing
+\item Cross Validation
+\end{itemize}
+
+\section{Experimental Results}
+
+\section{Conclusions}
+
+\section*{Bibliography}
+
+\end{document}
