@@ -5,11 +5,12 @@ require_relative 'dimension'
 
 # DataSet
 class DataSet
-  attr_accessor :size, :space, :samples, :class_outcomes
+  attr_accessor :size, :space, :samples, :class_outcomes, :overlap
 
-  def initialize(size, space)
+  def initialize(size, space, overlap: true)
     @size = size
     @space = space
+    @overlap = overlap
     @class_outcomes = space.classes.collect { 0.0 }
     @samples = build_samples
   end
@@ -21,14 +22,17 @@ class DataSet
   end
 
   def improve(delta)
+    likelihoods = @space.likelihoods
     matches = @samples.inject(0) do |count, sample|
-      true_class, address = sample
+      true_class, *measurement = sample
+      address = space.address measurement
       assigned_class = posteriors.row(address).each_with_index.max[1]
       next count += 1 if true_class == assigned_class
-
-      @space.update_likelihoods true_class, address, delta
+      likelihoods[true_class, address] += delta
       count
     end
+    @space.likelihoods = Matrix.rows likelihoods.row_vectors.collect { |row| Dimension.normalize row }
+    @posteriors = build_posteriors
     accuracy = matches.to_f / samples.size
     [@space, accuracy]
   end
@@ -72,14 +76,10 @@ class DataSet
 
   def build_posteriors
     rows = @space.addresses.collect do |address|
-      # pr_d = pr_by_class.each_with_index.collect do |pr_c, klass|
-      #   space.likelihoods[klass, address] * pr_c
-      # end.sum
       @space.classes.collect do |true_class|
         class_priori = class_prioris[true_class]
         likelihood = @space.likelihoods[true_class, address]
         likelihood * class_priori
-        # pr_c_given_d = pr_d_given_c * pr_c / pr_d
       end
     end
     Matrix.rows rows
@@ -89,9 +89,9 @@ class DataSet
     @size.times.collect do
       measurement = @space.dimensions.collect(&:random)
       address = @space.address measurement
-      klass = @space.class_dimension.random
+      klass = @space.class_dimension.random (@overlap ? nil : measurement)
       @class_outcomes[klass] += 1.0
-      [klass, address]
+      [klass, measurement].flatten
     end
   end
 end

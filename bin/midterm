@@ -1,5 +1,32 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-srand 1234
-require_relative '../lib/midterm'
+require_relative '../lib/parser'
+require_relative '../lib/builder'
+
+options = Parser.parse ARGV
+
+srand options.seed if options.seed
+
+space = build_space_from_options options
+train_sets, test_set = build_data_sets_from_options_and_space options, space
+economic_gain_matrix = build_economic_gain_matrix :identity, space.classes.size
+
+train_sets.each_with_index do |train_set, iteration|
+  train_set.space = space
+  # space.likelihoods.pretty_print
+  _, expected_gain, confusion_matrix = train_set.train economic_gain_matrix
+  space, accuracy = train_set.improve options.delta
+  # space.likelihoods.pretty_print
+  print "Train\t(#{iteration},#{expected_gain})\t"
+  puts "(#{iteration},#{accuracy})"
+end
+
+test_set.space = space
+# test_set.samples.each { p _1 }
+_, expected_gain, confusion_matrix = test_set.train economic_gain_matrix
+puts 'Confusion Matrix'
+puts confusion_matrix.pretty_print
+space, accuracy = test_set.improve options.delta
+print "Test\t\t\tExpected Gain: #{expected_gain}\t"
+puts "Confusion Matrix Trace: #{confusion_matrix.trace}\tAccuracy: #{accuracy}"

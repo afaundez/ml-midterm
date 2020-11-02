@@ -17,16 +17,16 @@ class Dimension
     @values ||= Vector.elements((0...@size).to_a).to_a
   end
 
-  def random
-    self.class.random @cdf
+  def random(vector = nil)
+    self.class.random @cdf, vector
   end
 
   def self.normalize(vector)
     return vector if vector.zero?
 
-    sum = vector.sum
+    sum = vector.sum.to_f
     return vector if sum == 1
-    
+
     vector / sum
   end
 
@@ -46,8 +46,8 @@ class Dimension
                        .slice(1..-1)
   end
 
-  def self.random(cdf)
-    x = rand
+  def self.random(cdf, vector = nil)
+    x = vector.nil? ? rand : Dimension.normalize(Vector.elements(vector)).norm
     return 0 if x < cdf.first
 
     (cdf.size - 1).times do |i|
