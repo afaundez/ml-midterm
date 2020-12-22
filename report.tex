@@ -177,7 +177,7 @@ The Economic Gain Matrix is generated in this step. Even though it is a method, 
 
 Once a set of DataSet is created, the test DataSet is picked and left isolated, and the rest is used as train DataSet.
 
-The training process consists of two steps: using an economic gain matrix as input, outputs the Bayes decision rule, and the expected gain. Then, using the Bayes decision rule, it generates the confusion matrix.
+The training process consists of two steps: using the training set and an economic gain matrix, the training outputs the Bayes decision rule, and the expected gain. Then, using the Bayes decision rule, it generates the confusion matrix.
 
 
 At the end of this process, the Space associated with the DataSet will store the measurement conditional probabilities $P(c \mid d)$ targeted in \ref{eq:bayes}.
