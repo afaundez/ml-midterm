@@ -1,7 +1,7 @@
 \documentclass[letterpaper, conference]{IEEEtran}
 
 \usepackage{amsmath}
-\DeclareMathOperator*{\argmin}{argmin}
+\DeclareMathOperator*{\argmax}{argmax}
 
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.5.1}
@@ -70,7 +70,7 @@ and use the economic gain matrix
 to determine the $c_k$ with the highest economic gain
 
 \begin{equation}
-  \argmin_{c_k \in C} \sum_{j = 1}^{K} e(c_j, c_k)P(c_j, d)
+  \argmax_{c_k \in C} \sum_{j = 1}^{K} e(c_j, c_k)P(c_j, d)
 \end{equation}
 
 Then, the Bayes decision rule is defined as:
