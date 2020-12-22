@@ -161,7 +161,7 @@ The Space abstraction stores the single class dimension \ref{classes}, the colle
 \item likelihoods, random pdfs
 \end{itemize}
 
-The DataSet abstraction is in charge of generating and store measurement values and the associated class, all bounded to a specific space. Since it has access to the data and space, it is in charge of the training and improving the class conditional probabilities, determining the Bayes Decision Rule, generating the Confusion Matrix, and calculating the Expected Gain. It is relevant that at creating the measurements, the prior class probabilities are calculated and stored in the DataSet. A DataSet is defined by:
+The DataSet abstraction is in charge of generating and storing measurement values and the associated class, all bounded to a specific space. Since it has access to the data and space, it is in charge of the training and improving the class conditional probabilities, determining the Bayes Decision Rule, generating the Confusion Matrix, and calculating the Expected Gain. It is relevant that at the time of creating, the prior class probabilities are calculated and stored in the DataSet. A DataSet is defined by:
     
 \begin{itemize}
 \item size
