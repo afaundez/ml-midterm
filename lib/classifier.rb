@@ -45,15 +45,22 @@ class Classifier
     @expected_gain_matrix.trace
   end
 
-  def summary
-    p @priors
-    @likelihoods.pretty_print
-    @posteriors.pretty_print
-    @economic_gain_matrix.pretty_print
-    @bayes_rules.pretty_print
-    @confusion_matrix.pretty_print
-    @expected_gain_matrix.pretty_print
-    puts "Expected Gain: #{expected_gain}.\tConfusion: #{accuracy}"
+  def summary(tags = nil)
+    tags ||= %i[input output values]
+    if tags.include? :input
+      p @priors
+      @likelihoods.pretty_print
+      @posteriors.pretty_print
+      @economic_gain_matrix.pretty_print
+    end
+    if tags.include? :output
+      @bayes_rules.pretty_print
+      @confusion_matrix.pretty_print
+      @expected_gain_matrix.pretty_print
+    end
+    if tags.include? :values
+      puts "Expected Gain: #{expected_gain}.\tConfusion: #{accuracy}"
+    end
   end
 
   private

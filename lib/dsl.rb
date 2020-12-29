@@ -53,9 +53,10 @@ def fit(classifier, with:)
   classifier.fit data: dataset.data, target: dataset.target
 end
 
-def summary(classifier, extra)
+def summary(classifier, extra, only: nil)
   puts extra
-  classifier.summary
+  tags = only.nil? ? only : [only].flatten.compact
+  classifier.summary tags
 
 end
 

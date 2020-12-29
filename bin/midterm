@@ -26,7 +26,7 @@ create :space do |space|
     iterate I.times do |iteration|
       create Z.samples from: space do |training, test|
         fit classifier, with: training
-        summary classifier, 'After fitting, Before adapting'
+        summary classifier, 'After fitting, Before adapting', only: :values
 
         predict using: classifier, with: test.data do |predictions|
           compare predictions, with: test.target
@@ -37,7 +37,7 @@ create :space do |space|
           end
         end
 
-        summary classifier, 'After adapting'
+        summary classifier, 'After adapting', only: :values
       end
     end
   end
