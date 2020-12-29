@@ -23,12 +23,12 @@ class Classifier
     @expected_gain_matrix = compute_expected_gain_matrix
   end
 
-  def predict(measurement_or_measurements)
-    if measurement_or_measurements.is_a? Enumerable
-      measurements = measurement_or_measurements
+  def predict(input)
+    if input.is_a?(Enumerable) && !input.empty? && input.first.is_a?(Enumerable)
+      measurements = input
       return measurements.map { |measurement| predict measurement }
     end
-    measurement = measurement_or_measurements
+    measurement = input
     @space.labels
           .values
           .map { |label| posterior label, given: measurement }

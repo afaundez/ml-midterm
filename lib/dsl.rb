@@ -66,9 +66,13 @@ def predict(using:, with:, &block)
   yield predictions
 end
 
-def compare(predictions, with:)
+def compare(predictions, with: nil)
+  raise 'cannot compare nil to anything' unless predictions
+  raise 'cannot compare to nil' unless with
   target = with
-  p 'do the compare'
+  matches = predictions.zip(target).count { |a, b| a == b }
+  accuracy = matches / target.size.to_f
+  puts "Prediction Accuracy: #{accuracy}"
 end
 
 def adapt(classifier, with:, based_on:)
