@@ -18,7 +18,8 @@ class DataSet
   def train(economic_gain_matrix)
     bayes, expected_gain = build_bayes_rules_decisions economic_gain_matrix
     confusion_matrix = build_confusion_matrix bayes
-    [bayes, expected_gain, confusion_matrix]
+    expected_gain_matrix = economic_gain_matrix * confusion_matrix
+    [bayes, expected_gain, confusion_matrix, expected_gain_matrix]
   end
 
   def improve(delta)
@@ -63,11 +64,11 @@ class DataSet
     confusion_matrix = @space.classes.collect do |true_class|
       @space.classes.collect do |assigned_class|
         @space.addresses.collect do |address|
-          bayes[address, assigned_class] * posteriors[address, true_class]
+          bayes[address, assigned_class] * 1.0
         end.sum
       end
     end
-    Matrix.rows confusion_matrix
+    Matrix.rows(confusion_matrix) / space.addresses.size
   end
 
   def build_bayes_row(klass)
@@ -77,9 +78,11 @@ class DataSet
   def build_posteriors
     rows = @space.addresses.collect do |address|
       @space.classes.collect do |true_class|
-        class_priori = class_prioris[true_class]
+        priori = @space.prioris[true_class]
         likelihood = @space.likelihoods[true_class, address]
-        likelihood * class_priori
+        # evidence = 1.0 / @space.addresses.size
+        evidence = @space.evidence(address)
+        likelihood * priori / evidence
       end
     end
     Matrix.rows rows

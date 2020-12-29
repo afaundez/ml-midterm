@@ -5,14 +5,15 @@ require 'optparse'
 DEFAULTS = {
   seed: nil,
   class_cardinality: 2,
-  measurements_size: 2,
+  measurements_cardinality: 2,
   measurement_min_cardinality: 2,
   measurement_max_cardinality: 2,
   iterations: 1,
   delta: 0.01,
   sample_size: nil,
   overlap: true,
-  distribution: :random
+  distribution: :random,
+  k_folds: 10
 }
 
 Options = Struct.new(*DEFAULTS.keys)
@@ -33,7 +34,7 @@ class Parser
       end
 
       opts.on('-m', '--measurements [INT]', 'Measurements size. Default 5') do |value|
-        options.measurements_size = value.to_i
+        options.measurements_cardinality = value.to_i
       end
 
       opts.on('--measurement-min-cardinality [INT]', 'Measurement Min Cardinality. Default 3') do |value|

@@ -1,57 +1,37 @@
 # frozen_string_literal: true
 
-require 'matrix'
+require_relative 'matrix'
 
-# Dimension
 class Dimension
-  attr_accessor :size, :pdf, :cdf, :distribution
+  attr_accessor :values, :pdf
 
-  def initialize(size, distribution: :random)
-    @size = size
-    @distribution = distribution
-    @pdf = self.class.build_pdf @size, distribution: @distribution
-    @cdf = self.class.build_cdf @pdf
+  def initialize(size, pdf: nil)
+    @values = (0...size).collect { |v| v }
+    @pdf = pdf.nil? ? Dimension.build_pdf(size) : pdf
   end
 
-  def values
-    @values ||= Vector.elements((0...@size).to_a).to_a
+  def size
+    @values.size
   end
 
-  def random(vector = nil)
-    self.class.random @cdf, vector
+  def cdf
+    Vector.elements @pdf.inject([0]) { |cdf, pr| cdf << cdf.last + pr }
+                        .slice(1..-1)
   end
 
-  def self.normalize(vector)
-    return vector if vector.zero?
-
-    sum = vector.sum.to_f
-    return vector if sum == 1
-
-    vector / sum
-  end
-
-  def self.build_pdf(size, distribution: :random)
-    numbers = size.times.collect do
-      case distribution
-      when :uniform then 1 / size.to_f
-      else rand
-      end
-    end
-    vector = Vector.elements numbers
-    normalize vector
-  end
-
-  def self.build_cdf(pdf)
-    Vector.elements pdf.inject([0]) { |cdf, pr| cdf << cdf.last + pr }
-                       .slice(1..-1)
-  end
-
-  def self.random(cdf, vector = nil)
-    x = vector.nil? ? rand : Dimension.normalize(Vector.elements(vector)).norm
+  def random(x_ = nil)
+    x = x_ || rand
     return 0 if x < cdf.first
 
     (cdf.size - 1).times do |i|
       return i + 1 if (cdf[i]..cdf[i + 1]).cover? x
     end
+  end
+
+  def self.build_pdf(size)
+    numbers = size.times.collect { rand }
+    # numbers = size.times.collect { 1.0 / size }
+    vector = Vector.elements numbers
+    vector / vector.sum
   end
 end
