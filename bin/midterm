@@ -3,69 +3,42 @@
 
 require 'set'
 require_relative '../lib/parser'
+require_relative '../lib/dsl'
+require_relative '../lib/matrix'
 require_relative '../lib/dimension'
 require_relative '../lib/space'
+require_relative '../lib/data_set'
 require_relative '../lib/classifier'
 
 options = Parser.parse ARGV
 
-srand options.seed if options.seed
+K = options[:class_cardinality]
+N = options[:measurements_cardinality]
+M = options[:measurement_max_cardinality]
+Z = 10 * (K * (M ** N))
+I = 1
 
-dimensions = (0...options[:measurements_cardinality]).collect do
-  (0...options[:measurement_min_cardinality]).to_a
+create :space do |space|
+  space.labels = 1.dimension with: K.labels
+  space.dimensions = N.dimensions :each, with: M.measurements
+
+  experiment using: space do |classifier|
+    iterate I.times do |iteration|
+      create Z.samples from: space do |training, test|
+        fit classifier, with: training
+        summary classifier, 'After fitting, Before adapting'
+
+        predict using: classifier, with: test.data do |predictions|
+          compare predictions, with: test.target
+          adapt classifier, with: test, based_on: predictions
+
+          predict using: classifier, with: test.data do |adapted_predictions|
+            compare adapted_predictions, with: test.target
+          end
+        end
+
+        summary classifier, 'After adapting'
+      end
+    end
+  end
 end
-
-klass = Dimension.new options[:class_cardinality]
-space = Space.new dimensions
-
-classifier = Classifier.new
-
-k_folds = options[:k_folds] # klass.size
-sample_size =  10 * (klass.size * space.size)
-
-k_fold_size = sample_size / k_folds
-# puts "Generating #{space.size} classifications"
-# true_classes = space.addresses.collect { |address| klass.random }
-
-iterations = options[:iterations]
-
-puts "Starting iterations #{iterations}"
-(0...iterations).each do |iteration|
-  puts "\tCreating training and test samples (~#{sample_size / 2} rows each)"
-  data,
-  test_data,
-  target,
-  test_target = (sample_size / 2).times.reduce([[], [], [], []]) do |output|
-    output[0] << space.random
-    output[1] << space.random
-    output[2] << klass.random
-    output[3] << klass.random
-    output
-  end
-
-  classifier.fit data: data, target: target, space: space, klass: klass
-  puts "\tAFTER FIT TRAINING expected_gain: #{classifier.expected_gain}"
-
-  predict = test_data.zip(test_target).collect do |measurement, true_class|
-    classifier.predict measurement
-  end
-  prediction_matches = predict.zip(test_target).count { |a,b| a == b }
-  prediction_accuracy = prediction_matches / test_target.size.to_f
-  puts "\tAFTER PREDICT TEST prediction_accuracy: #{prediction_accuracy}"
-
-  predict = data.zip(target).collect do |measurement, true_class|
-    classifier.predict measurement
-  end
-
-  adapt = classifier.adapt data, target, predict
-
-  predict = test_data.zip(test_target).collect do |measurement, true_class|
-    classifier.predict measurement
-  end
-
-  prediction_matches = predict.zip(test_target).count { |a,b| a == b }
-  prediction_accuracy = prediction_matches / test_target.size.to_f
-  puts "\tAFTER ADAPT TEST prediction_accuracy: #{prediction_accuracy}"
-  puts "\tAFTER ADAPT TEST expected_gain: #{classifier.expected_gain}"
-end
-classifier.summary
