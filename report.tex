@@ -1,6 +1,7 @@
 \documentclass[letterpaper, conference]{IEEEtran}
 
 \usepackage{amsmath}
+\usepackage{mathabx}
 \DeclareMathOperator*{\argmax}{argmax}
 
 \usepackage{pgfplots}
@@ -31,82 +32,98 @@
 
 \begin{abstract}
 
-The midterm project consists of the implementation of a discrete bayesian classifier. The subroutines include a dataset generator, training based on, and optimization of class conditional probabilities to maximize the expected gain. This report describes the steps that generate pseudo-random probabilities distributions, the dataset generation, the calculation of the Bayes decision rule, confusion matrix, and expected gain. The experimental results show that a 100\% expected gain is achievable in a few optimizations iterations.
+This report details the implementation of a discrete Bayesian classifier. The classifier requirements are a dataset and an economic gain matrix for input. The process calculates the class, measurement conditional, and class conditional probabilities from the dataset, all needed for the Bayes theorem. It outputs the Bayes rule, the confusion matrix and the expected gain matrix associated to the input used. After training  and predicting steps are complete, small perturbations were introduced in the measurement conditional probabilities of every misclassification, obtaining an improvement, as expected, in the expected gain (after recalculating all the classifier's outputs). The experiments included using the dataset split into equally sized  training and test sets and also using K-fold cross validation. The dataset were created using synthetic probabilities distribution. A series of results are detailed in the appendix.
 
 \end{abstract}
 
 \section{Introduction}
 
-The Bayesian classifier is a popular predictive classifier broadly used in Machine Learning. Given a set of classes
+Given a set of classifications, a measurement space and a dataset, the classifier uses the Bayes theorem to compute the conditional probabilities needed to perform a classification. Using an economic gain matrix, the classifier can optimized by maximizing the expected gain obtained through the Bayes decision rule.
 
-\begin{equation} \label{classes}
-C = \{c_1, ..., c_K\}
+The definition and implementation include:
+
+\begin{itemize}
+  \item Classification and measurement dimensions definitions, including pseudo-random probabilities and cumulative distribution functions
+  \item Space definition and linear addresses
+  \item Class prior and conditional probabilities
+  \item Classifier optimization using an economic gain matrix
+  \item Dataset definition and generation of pseudo-random synthetic data
+  \item Experimentation framework with two types of cross-validation.
+\end{itemize}
+
+The classifier is tested by adding small perturbation to the class conditional, increasing the expected gain. The increase was tested using are training/test and k-folds cross-validation.
+
+This report details the theory of a discrete Bayesian classifier used to implement the classifier. A technical overview explain the implementation from scratch in the Ruby language, and the results of the experiments executed.
+
+\section{Theory}
+
+The discrete Bayesian classifier is a popular predictive classifier broadly used in Machine Learning, based in the Bayes Theorem [\ref{eq:bayes-theorem}].
+
+\begin{equation}\label{eq:bayes-theorem}
+  P(A \mid B) = \frac{P(B \mid A)\mathbin{}P(A)}{P(B)}
 \end{equation}
 
-and a measurement space
+In our case, given a set $C$ of $K$ discrete classifications [\ref{eq:classes-set}] and a discrete measurement space $D$, result of the cartesian product of $N$ measurements $L$ [\ref{eq:measurement-space}], the objective is assigning a classification $c \in C$ to any measurement $d \in D$.
 
-\begin{equation} \label{dimensions}
-D = \times_{n=1}^{N}L_n
+\begin{equation}\label{eq:classes-set}
+C = \{0,\, \dots,\, c_{K - 1}\}
 \end{equation}
 
-the objective is to assign a class $c \in C$ for a specific measurement $d \in D$.
-
-The critical step for the building of the Bayes decision rule is to calculate the posterior probability for a $d$:
-
-\begin{equation} \label{eq:bayes}
-P(c \mid d) \propto P(d \mid c) P(c)
+\begin{equation} \label{eq:measurement-set}
+\begin{aligned}
+  L_n &= \{0,\, \dots,\, M_{n} - 1\} \\
+  \vert L_n \vert &= M_n
+\end{aligned}
 \end{equation}
 
-and use the economic gain matrix
+\begin{equation} \label{eq:measurement-space}
+D = \bigtimes_{n=1}^{N} L_n
+\end{equation}
 
-\begin{equation}
-  e =
-  \begin{pmatrix}
-    e(c_1,c_1) & \cdots & e(c_1,c_K) \\
+For the classification, we need the following inputs:
+\begin{itemize}
+  \item the discrete classification cardinality, $K$
+  \item the cardinalities of each discrete measurement, $\vert L_n \vert,\, n \in N$
+  \item an economic gain matrix, $E$
+  \item a dataset with $Z$ measurements, and $Z$ classifications. Alternatively, the class and class conditional probabilities could be used instead a dataset.
+\end{itemize}
+
+The Economic Gain matrix, $E$, is a squared matrix that defines the gain (or cost) of making the right or wrong classifications [\ref{eq:economic-gain-matrix}]. A column represents the assigned class, and a row represents the true class, then every element $E_{i, j} = e(c_i, c_j)$ represent the gain or cost of assigning the class $c_j$ when the true class was $c_i$. The expected gain usually is positive for every correct classification, and non-positive for every other case. The identity matrix is an example of an economic gain matrix.
+
+\begin{equation}\label{eq:economic-gain-matrix}
+  E = \begin{pmatrix}
+    e(c_1,\,c_1) & \cdots & e(c_1,\,c_K) \\
       \vdots   & \ddots &    \vdots   \\
-    e(c_K,c_1) & \cdots & c(c_K,c_K) 
+    e(c_K,\,c_1) & \cdots & c(c_K,\,c_K)
   \end{pmatrix}
 \end{equation}
 
-to determine the $c_k$ with the highest economic gain
+Our goal, is to maximize the Expected Gain of the classifier, $E$.
 
 \begin{equation}
-  \argmax_{c_k \in C} \sum_{j = 1}^{K} e(c_j, c_k)P(c_j, d)
+  E[e, f] = \sum_{c \in C} \sum_{d \in D}f_d(c)\mathbin{}e(c, c)\mathbin{}P(c \mid d)
 \end{equation}
 
-Then, the Bayes decision rule is defined as:
+A critical step in the construction of the classifier is the building of the Bayes decision rule. It determines which class maximize the Expected Gain for every measurement $d$ [\ref{eq:bayes-argmax}]. This way, the Bayes decision rule for a measurement, $f_d$, will assign 1 to the class that maximize the Expected Gain, and 0 otherwise [\ref{eq:bayes-rule}]
 
-\begin{equation}
-  f_d(c_m) = \left\{
+\begin{equation}\label{eq:bayes-argmax}
+  \argmax_{c_k \in C} \sum_{j = 1}^{K} e(c_j, c_k)\mathbin{}P(c_j, d)
+\end{equation}
+
+\begin{equation}\label{eq:bayes-rule}
+  f_d(c_j) = \left\{
   \begin{array}{lr}
-  1 & m = k\\
-  0 & m \neq k
+  1 & j = k\\
+  0 & j \neq k
   \end{array}\right\}
 \end{equation}
 
-The expected gain $E$, using an economic gain matrix $e$ is defined as follows:
+To obtain $f_d$, it is necessary to calculate the posterior probability of assign a class $c$ to measurement $d$, $P(c \mid d)$, using the prior class probability $P(c)$ and the probability of the measurement given the class $P(d \mid c)$ [\ref{eq:bayes-theorem-proportional}]. $P(c)$ and $P(d \mid c)$ can be calculated from the dataset or can be received as an input.
 
-\begin{equation}
-  E[e, f] = \sum_{c \in C} \sum_{d \in D}f_d(c)e(c, c)P(c \mid d)
+
+\begin{equation} \label{eq:bayes-theorem-proportional}
+P(c \mid d) \mathbin{\propto} P(d \mid c)\mathbin{}P(c)
 \end{equation}
-
-This report details the implementation of a Bayesian classifier from scratch in the Ruby language, without any external scientific library. The subroutines include
-
-\begin{itemize}
-
-  \item Class and measurement dimensions definitions, including pseudo-random probabilities and cumulative distribution functions
-
-  \item Space definition, calculating linear addresses, class conditional probabilities
- 
-  \item Data set definition, in charge of the prior probabilities, the Bayes decision rule, the confusion matrix, and the expected gain
-
-\end{itemize}
-
-These definitions provide tools to train and test using multiple pseudo-random generated datasets. The random seed is configurable by the user to get the same result in any iteration.
-
-The classifier can be optimized after the training, maximizing the expected gain, modifying the class conditional probabilities using, and small perturbations.
-
-The experimental results achieve a 100\% expecting gain after only a couple of iterations.
 
 \section{Technical}
 
@@ -163,7 +180,7 @@ The Space abstraction stores the single class dimension \ref{classes}, the colle
 \end{itemize}
 
 The DataSet abstraction is in charge of generating and storing measurement values and the associated class, all bounded to a specific space. Since it has access to the data and space, it is in charge of the training and improving the class conditional probabilities, determining the Bayes Decision Rule, generating the Confusion Matrix, and calculating the Expected Gain. It is relevant that at the time of creating, the prior class probabilities are calculated and stored in the DataSet. A DataSet is defined by:
-    
+
 \begin{itemize}
 \item size
 \item space, a Space instance
@@ -338,4 +355,3 @@ Robert M. Haralick,
 \end{thebibliography}
 
 \end{document}
-  
