@@ -3,18 +3,21 @@
 require_relative 'dimension'
 require_relative 'space'
 
+# A dataset, data and target
 class DataSet
   attr_accessor :data, :target
 
-  def initialize(size, space)
+  def initialize(size, space, labels)
     @data, @target = size.times.reduce([[], []]) do |output|
-      output[0].append space.random
-      output[1].append space.labels.random
+      output.first.append space.random
+      output.last.append labels.random
       output
     end
   end
 
   def summary(tags: nil, prefix: '')
+    'no tags' if tags
+
     puts prefix + "Dataset: #{@data.size} (rows)"
   end
 end

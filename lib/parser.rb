@@ -16,10 +16,11 @@ DEFAULTS = {
   distribution: :random,
   k_folds: 10,
   repetitions: 1
-}
+}.freeze
 
 Options = Struct.new(*DEFAULTS.keys)
 
+# Parse command line options
 class Parser
   def self.parse(args)
     options = Options.new(*DEFAULTS.values)
@@ -67,11 +68,11 @@ class Parser
         options.delta = value.to_f
       end
 
-      opts.on('--no-overlap', 'Generate classes based on measurements') do |value|
+      opts.on('--no-overlap', 'Generate classes based on measurements') do
         options.overlap = false
       end
 
-      opts.on('--uniform', 'Use uniform distribution on all dimensions') do |value|
+      opts.on('--uniform', 'Use uniform distribution on all dimensions') do
         options.distribution = :uniform
       end
 
@@ -82,6 +83,6 @@ class Parser
     end
 
     opt_parser.parse!(args)
-    return options
+    options
   end
 end
