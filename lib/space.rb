@@ -22,4 +22,8 @@ class Space
          .collect { |j, dn| j * dn }
          .sum
   end
+
+  def summary(tags: nil, prefix: '')
+    puts prefix + "#{@labels.size} classes. #{@dimensions.size} measurements with cardinalities #{@dimensions.collect(&:size)} each"
+  end
 end

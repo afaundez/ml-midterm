@@ -5,15 +5,17 @@ require 'optparse'
 DEFAULTS = {
   seed: nil,
   class_cardinality: 2,
-  measurements_cardinality: 2,
+  measurements_cardinality: 3,
+  measurement_cardinality: 4,
   measurement_min_cardinality: 2,
-  measurement_max_cardinality: 2,
-  iterations: 1,
+  measurement_max_cardinality: 4,
+  experiments: 1,
   delta: 0.01,
   sample_size: nil,
   overlap: true,
   distribution: :random,
-  k_folds: 10
+  k_folds: 10,
+  repetitions: 1
 }
 
 Options = Struct.new(*DEFAULTS.keys)
@@ -33,15 +35,19 @@ class Parser
         options.class_cardinality = value.to_i
       end
 
-      opts.on('-m', '--measurements [INT]', 'Measurements size. Default 5') do |value|
+      opts.on('-m', '--measurements-cardinality [INT]', 'Measurements Cardinality. Default 3') do |value|
         options.measurements_cardinality = value.to_i
       end
 
-      opts.on('--measurement-min-cardinality [INT]', 'Measurement Min Cardinality. Default 3') do |value|
+      opts.on('-l', '--measurement-cardinality [INT]', 'Cardinality for all measurements. Default 4') do |value|
+        options.measurement_cardinality = value.to_i
+      end
+
+      opts.on('--measurement-min-cardinality [INT]', 'Min Cardinality for all measurements. Default 2') do |value|
         options.measurement_min_cardinality = value.to_i
       end
 
-      opts.on('--measurement-max-cardinality [INT]', 'Measurement Max Cardinality. Default 6') do |value|
+      opts.on('--measurement-max-cardinality [INT]', 'Max Cardinality for all measurements. Default 4') do |value|
         options.measurement_max_cardinality = value.to_i
       end
 
@@ -49,8 +55,12 @@ class Parser
         options.sample_size = value.to_i
       end
 
-      opts.on('-i', '--iterations [INT]', 'Iterations. Default 2') do |value|
-        options.iterations = value.to_i
+      opts.on('-e', '--experiments [INT]', 'Experiments. Each experiment create a new classifier. Default 1') do |value|
+        options.experiments = value.to_i
+      end
+
+      opts.on('-r', '--repetitions [INT]', 'Repetitions. Default 1') do |value|
+        options.repetitions = value.to_i
       end
 
       opts.on('-d', '--delta [FLOAT]', 'Delta. Default: 0.01') do |value|

@@ -12,33 +12,48 @@ require_relative '../lib/classifier'
 
 options = Parser.parse ARGV
 
-K = options[:class_cardinality]
-N = options[:measurements_cardinality]
-M = options[:measurement_max_cardinality]
+srand options.seed if options.seed
+
+K = options.class_cardinality
+N = options.measurements_cardinality
+M = options.measurement_cardinality
 Z = 10 * (K * (M ** N))
-I = 1
 
-create :space do |space|
-  space.labels = 1.dimension with: K.labels
-  space.dimensions = N.dimensions :each, with: M.measurements
+E = options.experiments
+R = options.repetitions
 
-  experiment using: space do |classifier|
-    iterate I.times do |iteration|
-      create Z.samples from: space do |training, test|
-        fit classifier, with: training
-        summary classifier, 'After fitting, Before adapting', only: :values
+indent_levels :experiment, :adapt, :compare, :summary, :repeat
 
-        predict using: classifier, with: test.data do |predictions|
-          compare predictions, with: test.target
-          adapt classifier, with: test, based_on: predictions
+create :measurement_space do |space|
+  space.labels = 1.dimension with: K.labels, distributed: :random
+  space.dimensions = N.dimensions :each, with: M.values, distributed: :random
+  summary space, titled: 'Space summary'
 
-          predict using: classifier, with: test.data do |adapted_predictions|
-            compare adapted_predictions, with: test.target
+  experiment E.times, within: space do |iteration, classifier|
+    create Z.samples from: space do |training, test|
+      summary training, titled: 'New training summary'
+
+      fit classifier, with: training do |classifier, _|
+        summary classifier, titled: 'Classifier summary before any adapting',
+                            including: :values
+
+        repeat R.times, using: test do |repetition, data, target|
+          predict using: classifier, with: data do |predictions|
+            compare predictions, with: target
+            adapt classifier, with: test, based_on: predictions
           end
-        end
 
-        summary classifier, 'After adapting', only: :values
+          predict using: classifier, with: data do |predictions|
+            compare predictions, with: target, show: :confusion
+          end
+
+          summary classifier, titled: "Classifier summary after " \
+                                      "#{repetition} adaptations",
+                              including: :values
+        end
       end
+
+      summary classifier, titled: 'Finish training summary', including: :values
     end
   end
 end

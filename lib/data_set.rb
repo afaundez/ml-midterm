@@ -13,4 +13,8 @@ class DataSet
       output
     end
   end
+
+  def summary(tags: nil, prefix: '')
+    puts prefix + "Dataset: #{@data.size} (rows)"
+  end
 end

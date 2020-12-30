@@ -4,7 +4,7 @@ require_relative 'dimension'
 require_relative 'space'
 
 class Classifier
-  attr_accessor :space
+  attr_accessor :space, :priors, :likelihoods, :posteriors, :confusion_matrix
 
   def initialize(space)
     @space = space
@@ -16,11 +16,7 @@ class Classifier
     @data, @target = data, target
     @priors = process_priors
     @likelihoods = process_likelihoods
-    @posteriors = compute_posteriors
-    @economic_gain_matrix = Matrix.identity @space.labels.size
-    @bayes_rules = compute_bayes_rules
-    @confusion_matrix = compute_confusion_matrix
-    @expected_gain_matrix = compute_expected_gain_matrix
+    compute
   end
 
   def predict(input)
@@ -45,22 +41,30 @@ class Classifier
     @expected_gain_matrix.trace
   end
 
-  def summary(tags = nil)
+  def summary(tags: nil, prefix: '')
     tags ||= %i[input output values]
     if tags.include? :input
-      p @priors
-      @likelihoods.pretty_print
-      @posteriors.pretty_print
-      @economic_gain_matrix.pretty_print
+      puts prefix + @priors.inspect
+      [@likelihoods, @posteriors, @economic_gain_matrix].each do |matrix|
+        matrix.pretty_print prefix: prefix
+      end
     end
     if tags.include? :output
-      @bayes_rules.pretty_print
-      @confusion_matrix.pretty_print
-      @expected_gain_matrix.pretty_print
+      [@bayes_rules, @confusion_matrix, @expected_gain_matrix].each do |matrix|
+        matrix.pretty_print prefix: prefix
+      end
     end
     if tags.include? :values
-      puts "Expected Gain: #{expected_gain}.\tConfusion: #{accuracy}"
+      puts prefix + "Expected Gain: #{expected_gain}.\tConfusion: #{accuracy}"
     end
+  end
+
+  def compute
+    @posteriors = compute_posteriors
+    @economic_gain_matrix = Matrix.identity @space.labels.size
+    @bayes_rules = compute_bayes_rules
+    @confusion_matrix = compute_confusion_matrix
+    @expected_gain_matrix = compute_expected_gain_matrix
   end
 
   private
