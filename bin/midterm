@@ -12,40 +12,101 @@ K = options.class_cardinality
 N = options.measurements_cardinality
 M = options.measurement_cardinality
 Z = 10 * (K * (M**N))
+V = 2
 
+p Z
+
+delta = options.delta
 E = options.experiments
 R = options.repetitions
 
-indent_levels :report, :experiment, :repeat, :adapt, :compare
+indent_levels :report, :experiment, :repeat, :adapt, :compare, :summary, :round_robin, :predict
 
-create N.dimensions each_with: M.values do |space|
-  create 1.dimension with: K.values do |labels|
-    experiment E.times, within: space, assigning: labels do |_, classifier|
-      create Z.samples from: space, to: labels do |training_set, test_set|
-        fit classifier, with: training_set do |fitted_classifier, _|
-          report space, labels, training_set, fitted_classifier,
-                 titled: 'Classifier summary before any adapting',
-                 including: :values
-
-          repeat R.times, using: test_set do |repetition, data, target|
-            predict using: fitted_classifier, with: data do |predictions|
-              compare predictions, with: target, show: :confusion
-              adapt fitted_classifier, with: test_set, based_on: predictions
+create N.dimensions(each_with: M.values), showing: :summary do |space|
+  create 1.dimension(with: K.values), showing: :summary do |labels|
+    experiment E.times, assigning: labels, within: space, showing: :details do |_, classifier|
+      fit classifier do
+        results = repeat R.times do |iteration|
+          # create Z.samples from: space, to: labels, with: classifier.posteriors, in: V.folds do |folds|
+          #   round_robin folds do |test, validation|
+          #     predict using: classifier, with: test.data do |predictions|
+          #       adapt classifier, with: test, based_on: predictions, increasing: delta
+          #     end
+          #   end
+          #   # classifier.bayes_rules.pretty_print title: 'end sample'
+          #   classifier
+          # end
+          create Z.samples from: space, to: labels, with: classifier.posteriors do |test, validation|
+            predict using: classifier, with: test.data do |predictions|
+              compare predictions, to: test.target, with: labels, showing: true
+              adapt classifier, with: test, based_on: predictions, increasing: delta
             end
-
-            predict using: fitted_classifier, with: data do |predictions|
-              compare predictions, with: target, show: :confusion
-            end
-
-            report fitted_classifier, titled: 'Classifier summary after ' \
-                                        "#{repetition} adaptations",
-                                      including: :values
+            classifier
           end
+          summary classifier
+          classifier.expected_gain
         end
-
-        report classifier, titled: 'Finish training set summary',
-                           including: :values
+        write_into "figures/test-c#{K}-m#{N}-l#{M}-r#{R}-d#{delta}.tex" do |file|
+          file.write classifier.priors.to_tex_plot :priors, kind: :bars
+          file.write Vector[*results].to_tex_plot :expectedgain
+        end
       end
     end
   end
 end
+
+# create N.dimensions(each_with: M.values), showing: :summary do |space|
+#   create 1.dimension(with: K.values), showing: :summary do |labels|
+#     experiment E.times, assigning: labels, within: space, showing: :details do |_, new_classifier|
+#       fit new_classifier, showing: :summary  do |fitted_classifier|
+#           create Z.samples from: space, to: labels, in: 2.folds do |test, validation|
+#         repeat R.times, showing: :results do |repetition|
+#             predict using: fitted_classifier, with: test.data do |predictions|
+#               # compare predictions, to: test.target, with: labels, show: true
+#               adapt fitted_classifier, with: test, based_on: predictions, increasing: delta# * (repetition + 1)
+#             end
+#             p 1.0 / space.size / 100
+#             report delta# * (repetition + 1)
+#             summary fitted_classifier
+#             # predict using: fitted_classifier, with: validation.data
+#           end
+#         end
+#         summary fitted_classifier, titled: 'Finish training set summary',
+#                                   including: :values
+#       end
+#     end
+#   end
+# end
+
+# create N.dimensions each_with: M.values do |space|
+#   create 1.dimension with: K.values do |labels|
+#     experiment E.times, within: space, assigning: labels do |_, classifier|
+#       create Z.samples from: space, to: labels do |training_set, test_set|
+#         fit classifier, with: training_set do |fitted_classifier, _|
+#           report space, labels, training_set, fitted_classifier,
+#                  titled: 'Classifier summary before any adapting',
+#                  including: :values
+#           repeat R.times, using: test_set do |repetition, data, target|
+#           create Z.samples from: space, to: labels do |_, test_set|
+#
+#             predict using: fitted_classifier, with: test_set.data do |predictions|
+#               compare predictions, to: test_set.target, with: labels #, show: :confusion
+#               adapt fitted_classifier, with: test_set, based_on: predictions,
+#                                                        increasing: delta * repetition
+#             end
+#
+#             predict using: fitted_classifier, with: test_set.data do |predictions|
+#               compare predictions, to: test_set.target, with: labels#, show: :confusion
+#             end
+#
+#             report fitted_classifier, including: :values
+#           end
+#           end
+#         end
+#
+#         report classifier, titled: 'Finish training set summary',
+#                            including: :values
+#       end
+#     end
+#   end
+# end

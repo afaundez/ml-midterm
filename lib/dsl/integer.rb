@@ -11,15 +11,24 @@ class Integer
     Dimension.new labels
   end
 
-  def dimensions(each_with: 1)
-    measurements = each_with
-    times.collect { Dimension.new measurements }
+  def dimensions(each_with: (0..1))
+    values = each_with
+    times.collect { Dimension.new values }
   end
 
-  def samples(from:, to:)
+  def folds
+    self
+  end
+
+  def samples(**keywords)
     size = self
-    space = from
-    labels = to
-    2.times.collect { DataSet.new size, space, labels }
+    space = keywords[:from]
+    labels = keywords[:to]
+    conditionals = keywords[:with]
+    folds = keywords[:in] || 1
+    if folds == 1
+      return 2.times.collect { DataSet.new size / 2, space, labels, conditionals: conditionals }
+    end
+    folds.times.collect { DataSet.new size / folds, space, labels, conditionals: conditionals }
   end
 end

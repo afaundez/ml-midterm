@@ -2,11 +2,53 @@
 
 require 'matrix'
 
+class Vector
+  def scale
+    return if self.sum == 0
+    set_range (0...self.count), (self / self.sum.to_f)
+    self
+  end
+
+  def to_tex_data(label, kind: :line)
+    <<~TEX
+    \\pgfplotstableread[row sep=\\\\,col sep=&]{
+    values & \P \\\\
+    #{each_with_index.collect { |pr, c| [c, pr].join(' & ') }.join(" \\\\\n")} \\\\
+    }\\#{label}
+    TEX
+  end
+
+  def to_tex_plot(label, kind: :line)
+    <<~TEX
+    #{to_tex_data label}
+    \\begin{tikzpicture}
+      \\begin{axis}#{"[ybar]" if kind == :bars}
+        \\addplot table[x=values,y=\P]{\\#{label}};
+      \\end{axis}
+    \\end{tikzpicture}
+    TEX
+  end
+end
+
+
 # Add a few methods to std matrix
 class Matrix
   def pretty_print(title: nil, prefix: '')
     puts prefix + title if title
     puts pp_top(prefix), pp_middle(prefix), pp_bottom(prefix)
+  end
+
+  def scale(direction = :rows, index: nil)
+    if direction == :rows && index
+      v = row_vectors[index]
+      return set_col_range index, (0...v.size), v.scale
+    elsif direction == :rows
+      return row_vectors.each_with_index { |v, i| set_col_range i, (0...v.size), v.scale }
+    elsif index
+      v = column_vectors[index]
+      return set_row_range (0...v.size), index, v.scale
+    end
+    column_vectors.each_with_index { |v, i| set_row_range (0...v.size), i, v.scale }
   end
 
   def shape
