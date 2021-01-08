@@ -9,14 +9,13 @@
 
 \usetikzlibrary{matrix}
 
-%\usepackage{titlesec}
-%\titlespacing*{\subsection}{0pt}{1.1\baselineskip}{\baselineskip}
-%\setlength{\parindent}{2em}
 \setlength{\parskip}{0.7em}
 
 \usepackage{url}
 
 \usepackage{listings}
+
+\usepackage{amsfonts}
 
 \begin{document}
 
@@ -26,8 +25,8 @@
 \author{
   \IEEEauthorblockN{Alvaro Faundez}
   \IEEEauthorblockA{
-    \textit{Master in Data Science's Program, first year}\\
-    \textit{CUNY Graduate Center}\\
+    \textit{Master in Data Science's Program, first year student}\\
+    \textit{Graduate Center, CUNY}\\
     \textit{alvaro@faundez.net}
   }
 }
@@ -36,20 +35,20 @@
 
 \begin{abstract}
 
-This report details the implementation of a discrete Bayesian classifier. The classifier requirements are a dataset and an economic gain matrix for input. The process calculates the class, measurement conditional, and class conditional probabilities from the dataset, all needed for the Bayes theorem. It outputs the Bayes rule, the confusion matrix, and the expected gain matrix associated with the input used. After completing the training and predicting steps, small perturbations are introduced in the measurement conditional probabilities of every misclassification, obtaining an improvement, as expected, in the Expected Gain (after recalculating all the classifier's outputs). The experiments included using the dataset split into equally sized training and test sets and using K-fold cross-validation. The experiments use synthetic probabilities distribution and create synthetic datasets. The appendix details the code implemented.
+This report details the implementation of a discrete Bayesian classifier. The classifier requirements are a class prior probabilities, the class conditional probabilities, and an Economic Gain Matrix for input. The process calculates the measurement's conditional probabilities needed for the Bayes theorem, and it outputs the Bayes decision rule, the Confusion Matrix, and the Expected Gain Matrix associated with the input used. After completing the classifications for every measurement in a testing sample set, small perturbations are introduced in the measurement conditional probabilities of every misclassification, obtaining an improvement, as expected, in the classifier's Expected Gain (after recalculating all the classifier's outputs). The experiments include the generation of synthetic random samples, and it split them equally sized testing and validation sets, or it uses V-fold Cross-Validation.
 
 \end{abstract}
 
 \section{Introduction}
 
 
-The discrete Bayesian classifier is a popular predictive classifier broadly used in Machine Learning, based on the Bayes Theorem [Equation \ref{eq:bayes-theorem}].
+The discrete Bayesian classifier is a popular predictive classifier broadly used in Machine Learning. It is based on the Bayes Theorem [Equation \ref{eq:bayes-theorem}].
 
 \begin{equation}\label{eq:bayes-theorem}
   P(A \mid B) = \frac{P(B \mid A)\mathbin{}P(A)}{P(B)}
 \end{equation}
 
-A discrete Bayesian classifier, given a set of classifications, a measurement space, and a dataset, uses the Bayes theorem to compute the conditional probabilities and the Bayes rule decision needed to perform classification. It can be optimized using an Economic Gain Matrix by maximizing the Expected Gain obtained using the Bayes decision rule.
+A discrete Bayesian classifier, given a set of classifications and a measurement space, uses the Bayes theorem to compute the conditional probabilities and the Bayes rule decision needed to perform classifications. It can be optimized using an Economic Gain Matrix by maximizing the Expected Gain obtained using the Bayes decision rule.
 
 In our case, given a set $C$ of $K$ discrete classifications [Equation \ref{eq:classes-set}] and a discrete measurement space $D$, result of the cartesian product of $N$ discrete measurements $L_n$ [Equation \ref{eq:measurement-space}], the classifier is a function assigning a unique classification $c \in C$ to any measurement $\vec{d} \in D$.
 
@@ -70,28 +69,37 @@ For the classification, the following inputs are required:
 
 \begin{itemize}
   \item the discrete classification cardinality, $K$
-  \item the cardinalities of each discrete measurement, $\vert L_n \vert,\, n \in N$
+  \item the cardinalities of each discrete measurement, $M_n,\, n \in N$
   \item an Economic Gain Matrix, $e^{K \times K}$
   \item a dataset with $Z$ measurements with matching $Z$ classifications. 
 \end{itemize}
 
-The Economic Gain matrix, $e$, is a $K \times K$ matrix that defines the gain (or cost) of making the right (or wrong) classifications [Equation \ref{eq:economic-gain-matrix}]. Each column will represent an assigned class, and each row will represent the true class. Then, every element $e(c_i,\, c_j) \in e$ represent the gain or cost of assigning the class $c_j$ when the true class was $c_i$. Usually, The Economic Gain is positive for every correct classification and non-positive for every other case. The identity matrix is an example of an economic gain matrix.
+The Economic Gain matrix, $\mathcal{E}$, is a $K \times K$ matrix that defines the gain (or cost) of making the right (or wrong) classifications [Equation \ref{eq:economic-gain-matrix}]. Each row of the matrix represents a true classification, and each column of the matrix will represent an assigned class. Then, every element $e(c_i,\, c_j) \in e$ represent the gain or cost of assigning the class $c_j$ when the true class is $c_i$. Usually, The Economic Gain has positive for every matching classification and non-positive for every other case. The identity matrix is an example of an economic gain matrix.
 
 \begin{equation}\label{eq:economic-gain-matrix}
-  e^{K \times K} = \begin{pmatrix}
+  \mathcal{E}^{K \times K} = \begin{pmatrix}
     e(c_1,c_1) & \cdots & e(c_1,c_K) \\
-      \vdots   & \ddots &    \vdots   \\
+      \vdots   & \ddots &   \vdots   \\
     e(c_K,c_1) & \cdots & e(c_K,c_K)
   \end{pmatrix}
 \end{equation}
 
+The Confusion Matrix, $\mathcal{C}$ is as $K \times K$ that tells how correct is the machine learning in the classifier. Each element $P(c_i, c_j)$ in the Confusion Matrix represents the probability that the classifier assigns the classification $c_j$ when in reality the classification is $c_i$ [Equation \ref{eq:confusion-matrix}].
 
-The economical consequences of the classifier are determined by the Expected Gain Matrix $G^{K \times K}$. Each element $g$ is the multiplication between the economic gain $e(i,\, j) \in K$ and the probability of the true class $c_i$ being assigned class $c_j$, $P(c_i,\, c_j)$ [Equation \ref{eq:expected-gain-matrix}].
+\begin{equation}\label{eq:confusion-matrix}
+  \mathcal{C}^{K \times K} = \begin{pmatrix}
+    P(c_1,c_1) & \cdots & P(c_1,c_K) \\
+      \vdots   & \ddots &   \vdots   \\
+    P(c_K,c_1) & \cdots & P(c_K,c_K)
+  \end{pmatrix}
+\end{equation}
+
+The economical consequences of the classifier are determined by the Expected Gain Matrix $\mathcal{G}^{K \times K}$. Each element $g$ is the multiplication between the economic gain $e(i,\, j) \in K$ and the probability of the true class $c_i$ being assigned class $c_j$, $P(c_i,\, c_j)$ [Equation \ref{eq:expected-gain-matrix}].
 
 \begin{equation}\label{eq:expected-gain-matrix}
-  G^{K \times K} = \begin{pmatrix}
+  \mathcal{G}^{K \times K} = \begin{pmatrix}
     e(c_1,c_1)P(c_1,c_1) & \cdots & e(c_1,c_K)P(c_1,c_K) \\
-                \vdots   & \ddots &    \vdots   \\
+              \vdots    & \ddots &            \vdots     \\
     e(c_K,c_1)P(c_K,c_1) & \cdots & e(c_K,c_K)P(c_K,c_K)
   \end{pmatrix}
 \end{equation}
@@ -102,9 +110,11 @@ The classifier's Expected Gain is the sum of all the Expected Gain Matrix's elem
   E[e] = \sum_{i \in K} \sum_{j \in K}e(c_i,\,c_k)\mathbin{}P(c_i,\,c_k)
 \end{equation}
 
-The goal is to determine the Bayes decision rule that maximizes the Expected Gain classifier, $E$.
+A critical step in the construction of the classifier is the building of the Bayes decision rule $f_{\vec{d}}:C \longrightarrow \{0, 1\}, \forall \vec{d} \in D$. The goal is to determine the Bayes decision rule that maximizes the Expected Gain classifier, $E[e]$ [Equation \ref{eq:bayes-argmax}]. The Bayes decision rule will assign 1 to the class that maximizes the Expected Gain, and 0 otherwise [Equation \ref{eq:bayes-rule}].
 
-A critical step in the construction of the classifier is the building of the Bayes decision rule $f_{\vec{d}}$ [Equation \ref{eq:bayes-rule}]. The Bayes decision rule will assign 1 to the class that maximizes the Expected Gain, and 0 otherwise [Equation \ref{eq:bayes-argmax}].
+\begin{equation}\label{eq:bayes-argmax}
+  \argmax_{c_k \in C} \sum_{j = 1}^{K} e(c_j, c_k)\mathbin{}P(c_j, \vec{d})
+\end{equation}
 
 \begin{equation}\label{eq:bayes-rule}
   f_d(c_j) =
@@ -114,11 +124,7 @@ A critical step in the construction of the classifier is the building of the Bay
   \end{cases}
 \end{equation}
 
-\begin{equation}\label{eq:bayes-argmax}
-  \argmax_{c_k \in C} \sum_{j = 1}^{K} e(c_j, c_k)\mathbin{}P(c_j, \vec{d})
-\end{equation}
-
-In addition to the Economic Gain Matrix, a Bayes decision rule can refine the Economic Gain definition [\label{eq:bayes-expected-gain}].
+In addition to the Economic Gain Matrix, a Bayes decision rule allows a refinement of the Economic Gain definition [\label{eq:bayes-expected-gain}].
 
 \begin{equation}\label{eq:bayes-expected-gain}
   E[e, f] = \sum_{i \in K} \sum_{j \in K}\sum_{\vec{d} \in D}f_{\vec{d}}(c_j)\mathbin{}e(c_i,\, c_j)\mathbin{}P(c_i,\,\vec{d})
@@ -138,12 +144,11 @@ The definition and implementation include:
   \item Classification and measurement dimensions, including pseudo-random probabilities and cumulative distribution functions
   \item Space definition and linear addresses
   \item Class prior and conditional probabilities
-  \item Classifier optimization using an economic gain matrix
+  \item Classifier validation
   \item Dataset definition and generation of pseudo-random synthetic data
-  \item Experimentation framework with two types of cross-validation
 \end{itemize}
 
-The classifier's performance is tested by adding small perturbations to the class conditional, increasing the Expected Gain. Test-validation sets and V-folds Cross-Validation determine the increment.
+The classifier's performance will be measured using the Expected Gain, and it will be tested by adding small perturbations to the class conditional, increasing the Expected Gain monotonically. The process uses Test-Validation sets or V-folds Cross-Validation as validation steps.
 
 \section{Technical}
 
@@ -152,7 +157,7 @@ The classifier's performance is tested by adding small perturbations to the clas
 In order to explain the implementation, a few concepts need discussion.
 
 \subsubsection{Dimension}
-A dimension is a 1-dimensional set of $M$ correlatives integer numbers from 1 to $K$. Any 1-dimensional $L$ set has a Probability Mass Function $P$ and a Cumulative Distribution Function $Q$ [Equation \ref{fig:pmf-cdf}]. The $P$ set will be created by generating a set $R$ with $K$ pseudo-random numbers $r_1, ...r_K$ scaled to 1 $p_1, ...r_K$ [Equation \ref{eq:pmf}]. The $Q$ set is sequence of cumulative sum of the probabilities in the $P$ [Equation \ref{eq:cdf}].
+A dimension is a 1-dimensional set of $M$ correlatives integer numbers from 1 to $K$. Any 1-dimensional $L$ set has a Probability Mass Function $\mathbb{P}$ and a Cumulative Distribution Function $\mathbb{Q}$ [Figure \ref{fig:pmf-cdf}]. The $\mathbb{P}$ set will be created by generating a set $\mathbb{R}$ with $K$ pseudo-random numbers $r_1, ...r_K$ scaled to 1 $p_1, ...r_K$ [Equation \ref{eq:pmf}]. The $\mathbb{Q}$ set is sequence of cumulative sum of the probabilities in $\mathbb{P}$ [Equation \ref{eq:cdf}].
 
 \pgfplotstableread[row sep=\\,col sep=&]{
 value & Probability \\
@@ -197,33 +202,34 @@ value & Cumulative Probability \\
     \end{axis}
   \end{tikzpicture}
   \caption{PMF and CDF values for a dimension with 10 possible values}
+  \label{fig:pmf-cdf}
 \end{figure}
 
 \begin{equation}\label{eq:pmf}
   \begin{aligned}
-  R &= \{r_1, \dots, r_K\} \\
-  P &= \Bigl\{p_i \mid p_i = \frac{r_i}{r_{\sum_{i = 1}^{K} r_i}}, r_i \in R \Bigr\}
+  \mathbb{R} &= \{r_1, \dots, r_K\} \\
+  \mathbb{P} &= \Bigl\{p_i \mid p_i = \frac{r_i}{r_{\sum_{i = 1}^{K} r_i}}, r_i \in \mathbb{R} \Bigr\}
   \end{aligned}
 \end{equation}
 
 \begin{equation}\label{eq:cdf}
-Q = \Bigl\{q_i \mid q_i = \sum_{j = 1}^{K} p_j, p_j \in P \Bigr\}
+\mathbb{Q} = \Bigl\{q_i \mid q_i = \sum_{j = 1}^{K} p_j, p_j \in \mathbb{P} \Bigr\}
 \end{equation}
 
 The classifications set $C$, and every measurement $L_n$ is a 1-dimensional set with their corresponding probabilities sets.
 
-The cumulative distribution functions will be used to generate pseudo-random numbers in the 1-dimensional space: Given a cumulative distribution function $Q$ belonging to the dimension $M$, $f_Q$ will take a number $r \in [0, 1]$. $f_Q$ and assign it the number $k \in M$ according to the relative position of $r$ compared with the numbers in $Q$ [Equation \ref{eq:cumulative}].
+The cumulative distribution functions will be used to generate pseudo-random numbers in the 1-dimensional space: given a cumulative distribution function $\mathbb{Q}_n$ belonging to the dimension $M_n$, $f_{\mathbb{Q}_n}$ will take a pseudo-random number $r \in [0, 1]$. $f_{\mathbb{Q}_n}$ and assign it the number $m \in M_n$ according to the relative position of $r$ compared with the numbers in $\mathbb{Q}_n$ [Equation \ref{eq:cumulative}].
 
 \begin{equation}\label{eq:cumulative}
-  f_Q(r) =
+  f_{\mathbb{Q}_n}(r) =
   \begin{cases}
   1 & r < q_1 \\
-  k & q_{k - 1} < r \leq q_k,\, k \in M - \{1\} \\
+  m & q_{m - 1} < r \leq q_k,\, m \in M - \{1\} \\
   \end{cases}
 \end{equation}
 
 \subsubsection{Measurement Space}
-The measurement space $D$ is the cartesian product of a set of measurements \ref{eq:measurement-space}. Every element in $\vec{d} \in D$ is a vector where every value corresponds to a measurement value [Equation \ref{eq:measurements-vector}].
+The measurement space $D$ is the cartesian product of a set of $N$ measurements dimensions [Equation \ref{eq:measurement-space}]. Every element in $\vec{d} \in D$ is a vector where every value corresponds to a measurement value [Equation \ref{eq:measurements-vector}].
 
 \begin{equation}\label{eq:measurements-vector}
   \vec{d} = (d_0, ..., d_N), \vec{d}_i \in L_n
@@ -234,19 +240,19 @@ Each element in the measurement space can be mapped to a linear space using a bi
 
 \begin{equation}\label{eq:linear-address}
   \begin{aligned}
-  \mathcal{L} &=& \{1, \dots, \prod_{i \in N} \mid L_i \mid\} \\
-  f_D&:& \bigtimes_{n=1}^{N} L_n \longleftrightarrow \mathcal{L} \\
+  \mathcal{S} &= \{1,\, 2,\, 3,\, \dots,\, \prod_{i \in N} \mid L_i \mid\} \\
+  f_D&: \bigtimes_{n=1}^{N} L_n \longleftrightarrow \mathcal{S} \\
   \end{aligned}
 \end{equation}
 
-We will assume every dimension in the measurement space is independent between each other, allowing us to compute the probability of every element in the measurement space $P(\vec{d})$ as the multiplication of the probabilities of each measurement value in $\vec{d}$ [Equation \ref{eq:prod:measurements}].
+Every dimension in the measurement space is independent between each other, allowing to compute the probability of every element in the measurement space $P(\vec{d})$ as the multiplication of the probabilities of each measurement value in $\vec{d}$ [Equation \ref{eq:prod:measurements}].
 
 \begin{equation}\label{eq:prod:measurements}
-  P(\vec{d}) = \prod_{i = 1}^{N} P(d_o), d_i \in L_n
+  P(\vec{d}) = \prod_{i = 1}^{N} P(d_i),\, d_i \in L_i
 \end{equation}
 
 \subsubsection{Classifier}
-The classifier is the element that assigns a classification to a measurement. The classifier emerges from the context of a set of classifications and a measurement space.
+The classifier is the function that assigns a classification to a measurement. The classifier lives in the context of a set of classifications, measurement space, and Economic Gain Matrix.
 
 \subsubsection{Dataset}
 A sample dataset is formed by two sets of equal size $Z$: the data $ X = \{x_i \in D \mid i \in [1, Z]\}$ and the target $Y = \{ y_i \in C \mid i \in [1, Z]\}$.
@@ -254,16 +260,16 @@ A sample dataset is formed by two sets of equal size $Z$: the data $ X = \{x_i \
 \subsubsection{Experiment}
 An experiment is an isolated routine that takes inputs and produces results. The experiments will define dimensions, classifications, measurement space, classifier, and datasets.
 
-An experiment uses immutable measurement space and classifications until the end of the whole process. That condition will mean that, during an experiment, the cumulative probabilities distribution remains unchanged. The experiments will yield a classifier that will work over the measurement space and classifications in the experiment.
+An experiment uses immutable measurement space and classifications until the end of the whole process. That condition will mean that, during an experiment, the cumulative probabilities distribution of every dimension remains unchanged. The experiments will yield a classifier that will over datasets created during the experiment.
 
 \subsubsection{Iteration}
-An iteration within an experiment will enclose the use and modification of the classifier available. Each iteration in a sequence of iterations will include the classifier's changes by the previous iteration.
+An iteration within an experiment will enclose the use and modification of the classifier available. Each iteration in a sequence of iterations will include the classifier's changes by the previous iteration and a new dataset.
 
 \subsubsection{Validation}
 An iteration has two kinds of testing and validation processes:
 \begin{itemize}
   \item Test-Validation sets: The sample dataset will be shuffled and divided into equal-sized subsets. An iteration uses the test subset to predict and adapt; the iteration finishes using the validation set [Equation \ref{eq:test-validation}].
-  \item V-fold sets: The sample dataset will be shuffled and divided into $V$ equal-sized folds. A V round-robin iterations will select a different fold as a validation set, and it will join the resting folds as a testing set [Equation \ref{eq:v-fold}].
+  \item V-fold sets: The sample dataset will be shuffled and divided into $V$ equal-sized folds. A $V$ round-robin iterations will select a different fold as a validation set, and it will concatenate the resting folds as a testing set [Equation \ref{eq:v-fold}].
 \end{itemize}
 
 \begin{figure}
@@ -272,14 +278,14 @@ An iteration has two kinds of testing and validation processes:
         nodes={minimum height = 5mm, minimum width = 2.3cm, outer sep=0, anchor=center, draw},
         column 1/.style={nodes={draw=none}, minimum width = 2.3cm},
         row sep=1mm, column sep=-\pgflinewidth, nodes in empty cells,
-        e/.style={fill=yellow!10}
+        e/.style={fill=blue!10}
       ]
       {
         Iteration & |[e]| & \\
       };
     \draw (M-1-2.north west) ++(0,2mm) coordinate (LT) edge[|<->|, >= latex] node[above]{Sample Dataset} (LT-|M-1-3.north east);
   \end{tikzpicture}
-  \caption{Test-Validation cross-validation.}
+  \caption{Test-Validation sets, only one iteration.}
   \label{eq:test-validation}
 \end{figure}
 
@@ -289,7 +295,7 @@ An iteration has two kinds of testing and validation processes:
         nodes={minimum height = 5mm, minimum width = 1cm, outer sep=0, anchor=center, draw},
         column 1/.style={nodes={draw=none}, minimum width = 1cm},
         row sep=1mm, column sep=-\pgflinewidth, nodes in empty cells,
-        e/.style={fill=yellow!10}
+        e/.style={fill=blue!10}
       ]
       {
         Iteration 1 & |[e]| & & & & \\
@@ -300,13 +306,13 @@ An iteration has two kinds of testing and validation processes:
       };
     \draw (M-1-2.north west) ++(0,2mm) coordinate (LT) edge[|<->|, >= latex] node[above]{Sample Dataset} (LT-|M-1-6.north east);
   \end{tikzpicture}
-  \caption{5-fold cross-validation. Each iteration uses the yellow fold as validation set and the rest folds as test set.}
+  \caption{5-fold cross-validation. Each iteration uses the blue fold as validation set and the rest folds as test set.}
 \end{figure}
   
 
 \subsection{Discrete Bayesian Classifier}
 
-A classifier will assign a classification $c \in C$ to any measurement $\vec{d} \in D$ from the measurement space. Within the classifier, all measurement will be translated to the corresponding linear address. The following parameters will be set:
+A classifier will assign a classification $c \in C$ to any measurement $\vec{d} \in D$ from the measurement space. Inside the classifier, all measurement will be translated to the corresponding linear address. The following parameters must be set during the initialization of the classifier:
 
 \begin{itemize}
   \item The list of $S$ linear addresses $l(\vec{d})$ for each $\vec{d} \in D$ [Equation \ref{eq:linear-address}], stored in a $S$ sized vector
@@ -315,7 +321,7 @@ A classifier will assign a classification $c \in C$ to any measurement $\vec{d} 
   \item Class conditional probabilities $P(\vec{d} \mid c)$. Each class $c \in C$ is assigned a probability mass distribution with $S$ probabilities [Equation \ref{eq:pmf}], stored in a $K \times S$ matrix
 \end{itemize}
 
-After initializing the classifier, given an Economic Gain Matrix [Equation \ref{eq:economic-gain-matrix}], the classifier can compute the elements needed to classify a measurement:
+Once the classifier is ready, given an Economic Gain Matrix [Equation \ref{eq:economic-gain-matrix}], the classifier computes the values needed to classify a measurement:
 
 \begin{itemize}
   \item $P(c \mid \vec{d})$, the probabilities of class given a measurement, stored in an $S \times K$ matrix [Equation \ref{eq:bayes-theorem}]
@@ -326,13 +332,13 @@ After initializing the classifier, given an Economic Gain Matrix [Equation \ref{
   \item The Expected Gain, the trace of the Expected Gain Matrix
 \end{itemize}
 
-The process will end with a discrete Bayesian classifier optimized to maximize Expected Gain given an Economic Gain Matrix.
+The process ends with a discrete Bayesian classifier optimized to maximize Expected Gain, given an Economic Gain Matrix.
 
 \section{Experiment}\label{experiment}
 
-To validate the discrete Bayesian classifier, a series of iteration will modify the probabilities of measurement given a class $P(\vec{d} \mid c$ by adding small perturbations. Each perturbation must increase the Expected Gain monotonically to 1.
+To validate the discrete Bayesian classifier, a series of iteration will modify each measurement's probabilities given a class $P(\vec{d} \mid c$ by adding small perturbations. Each perturbation must increase the Expected Gain monotonically to 1.
 
-Each iteration in the experiment will compute a classifier optimized for a specific Economic Gain Matrix. Using that classifier dataset of $Z$ samples measurements and corresponding classifications, generating random measurements $\vec{d}$ and assign a random $c$ using as probability mass distribution $P(c \mid \vec{d})$. $Z$ will be define 10 times the classifications number times the measurement space [Equation \ref{eq:sample-size}].
+Each iteration in the experiment will compute a classifier optimized for a specific Economic Gain Matrix. Using that classifier dataset of $Z$ samples measurements and corresponding classifications, it generates random measurements $\vec{d}$ assigned to random classifications $c$ using probability mass distribution $P(c \mid \vec{d})$. The sample size $Z$ will be 10 times the classifications number times the measurement space [Equation \ref{eq:sample-size}].
 
 \begin{equation}\label{eq:sample-size}
   Z = 10 \times \mid C \mid \times \prod_{n \in N} |L_n|
@@ -340,14 +346,15 @@ Each iteration in the experiment will compute a classifier optimized for a speci
 
 The classifier assigns a classification to each measurement in the test sample set. Based on those results, the conditional probabilities given a class will be modified, aiming that in the next iteration, the data generated should conform more alike to the classifications. The adaptation follows these steps:
 
-\begin{itemize}
-  \item For each assigned classification $c'$ made, if the classification is wrong a $\Delta$ perturbation will be added to $P(\vec{d} \mid c')$\footnote{This is different to what was instructed in the midterms slides \cite{midterm-project}. Section \ref{problems} provides further information.}.
+\begin{enumerate}
+  \item For each assigned classification $c'$ made, if the classification is wrong a $\Delta$ perturbation will be added to $P(\vec{d} \mid c')$\footnote{This is different to the steps defined in the midterms slides \cite{midterm-project}. Section \ref{problems} provides further information.}.
   \item Normalize to 1 each column on the $P(\vec{d} \mid c)$ matrix
   \item Compute the classifier with the new probabilities
   \item Return the Expected Gain
-\end{itemize}
+  \item Repeat from step 1
+\end{enumerate}
 
-The next iteration must do the same steps using the updated classifier and yield a higher Expected Gain.
+Each iteration must do the same steps using the updated classifier and yield a higher Expected Gain.
 
 \section{Experiment Results}
 
@@ -381,7 +388,7 @@ Increasing the number of values per measurement generates improvements on the Ex
 
 \input{figures/default-K2-N2-M-R10-D001}
 
-In $R = 10$ iterations the Expected Gain goes from $0.6217987808286073$ to $0.7389581277559807$. For $R > 400$ the Expected Gain gets stuck in $0.8088281174549596$ [Figure \ref{fig:results-K2-N2-M2-R-D001}]
+Using $R = 10$ iterations the Expected Gain goes from $0.6217987808286073$ to $0.7389581277559807$. For $R > 400$ the Expected Gain gets stuck in $0.8088281174549596$ [Figure \ref{fig:results-K2-N2-M2-R-D001}]
 
 \input{figures/default-K2-N2-M2-R-D001}
 
@@ -404,21 +411,19 @@ Over a hundred iterations, the best Expected Gain achieved is $0.999515061233156
 
 \subsubsection{V-fold cross-validation}
 
-All the previous experiments divided the sample set into a test set and a validation set. V-fold validation allows using more data for the testing, so it is expectable to produce better results in fewer iterations [Figure \ref{fig:custom-K6-N4-M3-R1000-D001-V}].
+All the previous experiments divided the sample set into a test set and a validation set. V-fold Cross-Validation allows using more data for the testing, producing better results in fewer iterations [Figure \ref{fig:custom-K6-N4-M3-R1000-D001-V}].
 
 \input{figures/custom-K6-N4-M3-R1000-D001-V}
 
 \section{Problems}\label{problems}
 
-In Section \ref{experiment}, at the experiment definition, it is described that the $\Delta$ perturbation modifies to the probability of the measurement $\vec{d}$ given the assigned class $c'$ that differs from the actual class $c$ from the dataset used. The perturbation increases the probability generation of the combination $(c', \vec{d})$ in the dataset of the next iteration, at the expense of any other class $c \neq c'$, making that dataset more alike to the Bayes decision rule. That differs from the instructions provided in \cite{midterm-project} slide 24, where it is detailed that the perturbation changes the correct class $c$ conditional probability (and not the assigned class $c'$).
+Section \ref{experiment}, the experiment definition, explains that the $\Delta$ perturbation modifies to the probability of the measurement $\vec{d}$ given the assigned class $c'$ that differs from the actual class $c$ from the dataset used. The perturbation increases the probability generation of the combination $(c', \vec{d})$ in the dataset of the next iteration, at the expense of any other class $c \neq c'$, making that dataset more alike to the Bayes decision rule.
 
-Using the original instructions, the Expected Gain does not show a monotonic increase as it is supposed to do. Instead, it gets stuck bouncing between different values [Figure \ref{fig:slides-K5-N4-M3-R100-D001-V3}]. An explanation for this could be this happens because by doing that change, in every iteration, we force the generation of more samples assigned incorrectly in the previous step, forcing the Bayes rule decision to change its decision in every iteration.
+That differs from the instructions provided in \cite{midterm-project} slide 24, where it is detailed that the perturbation changes the correct class $c$ conditional probability (and not the assigned class $c'$). Using the original instructions, the Expected Gain does not show a monotonic increase as it is supposed to do. Instead, it gets stuck bouncing between different values [Figure \ref{fig:slides-K5-N4-M3-R100-D001-V3}]. An explanation for this could be that it happens because by doing the original step, in every iteration, we force the generation of more samples assigned incorrectly in the previous step, forcing the Bayes rule decision to change its decision in every iteration.
 
 \input{figures/slides-K5-N4-M3-R100-D001-V3}
 
-
 \section{Conclusions}
-
 
 This report showed the definition, implementation, and experimentation of a discrete Bayes classifier.
 
@@ -428,7 +433,7 @@ The critical step of the classifier is the construction of the Bayes decision ru
 
 The classifier's validation involves generating synthetic datasets based on the conditional probabilities computed by the classifier. During the experimentation phase, and using the Identity Matrix as the Economic Gain Matrix, the classifier's Expected Gain tends to 1.0 when, in repeated iterations, the probabilities are modified, adding small perturbation to the class conditional probabilities. The modification will move the synthetic datasets closer to the Bayes rule decision each time the classifier generates new data.
 
-Multiple experiments run using test-validation sets and V-fold cross-validation, achieving better performance (less iterations needed) using the V-fold approach.
+Multiple experiments run using test-validation sets and V-fold cross-validation, achieving better performance (fewer iterations needed) using the V-fold approach.
 
 The implementation described in this report does not follow precisely the instructions from the midterm assignment because the interpretation of that instruction did not monotonically increase the Expected Gain. Instead, an alternative is proposed, achieving the monotonic increase desired. The changes involve adding the perturbations to the class conditional probabilities of the assigned class instead of the actual class, as suggested in the assignment.
 
@@ -436,7 +441,6 @@ The code developed and used is available at \url{https://github.com/afaundez/ml-
 
 
 \appendix
-
 
 To run the code, a Unix environment with Ruby 2.6+ is necessary. The code is available on GitHub at \url{https://github.com/afaundez/ml-midterm}.
 
@@ -490,14 +494,14 @@ The Space abstraction stores a collection of measurements dimensions [Equation \
   \item dimensions, a collection of dimensions instances, one for each measurement
 \end{itemize}
 
-The DataSet abstraction generates and stores measurement values and the associated classification; all bounded to a specific measurement space and classification dimension. A DataSet is defined by:
+The DataSet abstraction generates and stores measurement values and the associated classification, all bounded to a specific measurement space and classification dimension. A DataSet is defined by:
 
 \begin{itemize}
   \item data, a collection measurement space values
   \item target, a collection of classification labels
 \end{itemize}
 
-The Classifier is in charge of the training and improving of the class conditional probabilities, determining the Bayes Decision Rule, generating the Confusion Matrix, and calculating the Expected Gain.
+The classifier is in charge of the training and improving the class conditional probabilities, determining the Bayes Decision Rule, generating the Confusion Matrix, and calculating the Expected Gain.
 
 \begin{itemize}
   \item space
