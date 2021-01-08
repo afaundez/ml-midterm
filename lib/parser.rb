@@ -32,15 +32,15 @@ class Parser
         options.seed = value.to_i
       end
 
-      opts.on('-c', '--classes [INT]', 'Class cardinality. Default 2') do |value|
+      opts.on('-K', '--classes [INT]', 'Class cardinality. Default 2') do |value|
         options.class_cardinality = value.to_i
       end
 
-      opts.on('-m', '--measurements-cardinality [INT]', 'Measurements Cardinality. Default 3') do |value|
+      opts.on('-N', '--measurements-cardinality [INT]', 'Measurements Cardinality. Default 3') do |value|
         options.measurements_cardinality = value.to_i
       end
 
-      opts.on('-l', '--measurement-cardinality [INT]', 'Cardinality for all measurements. Default 4') do |value|
+      opts.on('-M', '--measurement-cardinality [INT]', 'Cardinality for all measurements. Default 4') do |value|
         options.measurement_cardinality = value.to_i
       end
 
@@ -52,7 +52,7 @@ class Parser
         options.measurement_max_cardinality = value.to_i
       end
 
-      opts.on('--sample-size [INT]', 'Sample size. Default space.addresses.size * 10') do |value|
+      opts.on('-Z', '--sample-size [INT]', 'Sample size. Default space.addresses.size * 10') do |value|
         options.sample_size = value.to_i
       end
 
@@ -60,20 +60,12 @@ class Parser
         options.experiments = value.to_i
       end
 
-      opts.on('-r', '--repetitions [INT]', 'Repetitions. Default 1') do |value|
+      opts.on('-R', '--repetitions [INT]', 'Repetitions. Default 1') do |value|
         options.repetitions = value.to_i
       end
 
-      opts.on('-d', '--delta [FLOAT]', 'Delta. Default: 0.01') do |value|
+      opts.on('-D', '--delta [FLOAT]', 'Delta. Default: 0.01') do |value|
         options.delta = value.to_f
-      end
-
-      opts.on('--no-overlap', 'Generate classes based on measurements') do
-        options.overlap = false
-      end
-
-      opts.on('--uniform', 'Use uniform distribution on all dimensions') do
-        options.distribution = :uniform
       end
 
       opts.on('-h', '--help', 'Prints this help') do

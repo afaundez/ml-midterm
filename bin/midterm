@@ -46,7 +46,7 @@ create N.dimensions(each_with: M.values), showing: :summary do |space|
           summary classifier
           classifier.expected_gain
         end
-        write_into "figures/test-c#{K}-m#{N}-l#{M}-r#{R}-d#{delta}.tex" do |file|
+        write_into "figures/test-K#{K}-N#{N}-M#{M}-R#{R}-D#{delta.to_s.gsub('.', '')}.tex" do |file|
           file.write classifier.priors.to_tex_plot :priors, kind: :bars
           file.write Vector[*results].to_tex_plot :expectedgain
         end

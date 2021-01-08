@@ -262,7 +262,7 @@ Two different validations are considered in an iteration:
   \item 
 \end{itemize}
 
-\begin{figure}\label{eq:test-validation}
+\begin{figure}
   \begin{tikzpicture}
     \matrix (M) [matrix of nodes,
         nodes={minimum height = 5mm, minimum width = 2.3cm, outer sep=0, anchor=center, draw},
@@ -276,6 +276,7 @@ Two different validations are considered in an iteration:
     \draw (M-1-2.north west) ++(0,2mm) coordinate (LT) edge[|<->|, >= latex] node[above]{Sample Dataset} (LT-|M-1-3.north east);
   \end{tikzpicture}
   \caption{Test-Validation cross-validation.}
+  \label{eq:test-validation}
 \end{figure}
 
 \begin{figure}\label{eq:v-fold}
@@ -327,7 +328,7 @@ This will produce a discrete Bayesian classifier optimized to get the maximum Ex
 
 To validate the discrete Bayesian classifier, a series of iteration will modify the probabilities of a measurement given a class $P(\vec{d} \mid c$ by adding small perturbations that must increase the Expected Gain monotonically to 1.
 
-Each iteration in the experiment will compute an optimized classifier. Using that classifier dataset of $Z$ samples measurements and corresponding classifications, generating random measurements $\vec{d}$ and assign a random $c$ using as probability mass distribution $P(c \mid \vec{d})$. $Z$ will be define 10 times the classifications number times the measurement space [\ref{eq:sample-size}].
+Each iteration in the experiment will compute a classifier optimized for a specific Economic Gain Matrix. Using that classifier dataset of $Z$ samples measurements and corresponding classifications, generating random measurements $\vec{d}$ and assign a random $c$ using as probability mass distribution $P(c \mid \vec{d})$. $Z$ will be define 10 times the classifications number times the measurement space [\ref{eq:sample-size}].
 
 \begin{equation}\label{eq:sample-size}
   Z = 10 \times \mid C \mid \times \prod_{n \in N} |L_n|
@@ -342,15 +343,45 @@ The classifier will be used to assign classification to each measurement in the 
   \item Return the Expected Gain
 \end{itemize}
 
-The next iteration must do the exact same steps using the updated classifier.
+The next iteration must do the exact same steps using the updated classifier and yield a higher Expected Gain.
 
 \section{Experiment Results}
 
+A base experiment will have the following default setup:
+
+\begin{itemize}
+  \item $K = 2$ classifications
+  \item $N = 2$ measurements
+  \item $M_n = 2, n \in N$ values for each measurement
+  \item $e^{K \times K} = I_K$ as Economic Gain Matrix
+  \item $\Delta = 0.01$ as a probability perturbation
+  \item $R = 10$ iterations per experiment
+  \item $V = 2$ folds (test/validation cross-validation)
+\end{itemize}
+
+\subsection{Default setup results}
+
+The default case generates $Z = 80$ samples. 
+
+Increasing the amount of the classifications dimension while keeping the rest of the default values generates a decrement in the Expected Gain [\ref{fig:results-K-N2-M2-R10-D001}].
+
+\input{figures/default-K-N2-M2-R10-D001}
+
+Increasing the amount of measurements dimensions generates improvements on the Expected Gain but also a notorious increase of the samples generated [\ref{fig:results-K2-N-M2-R10-D001}]
 
 
+\input{figures/default-K2-N-M2-R10-D001}
+
+Increasing the amount values per measurement generates improvements on the Expected Gain but also a notorious increase of the samples generated [\ref{fig:results-K2-N2-M-R10-D001}]
+
+\input{figures/default-K2-N2-M-R10-D001}
 
 
+In $R = 10$ iterations the Expected Gain goes from $0.6217987808286073$ to $0.7389581277559807$.
 
+Using different size of perturbations, the increase is achieved faster using the default value than smaller ones [Figure \ref{fig:results-K2-N2-M2-R10-D}].
+
+\input{figures/default-K2-N2-M2-R10-D}
 
 
 
