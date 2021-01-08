@@ -58,10 +58,13 @@ C = \{\,c_1,\, \dots,\, c_{K}\,\}
 \end{equation}
 
 
-\begin{gather}\label{eq:measurement-space}
-D = \bigtimes_{n=1}^{N} L_n \\
-L_n = \{l_{n_1},\, \dots,\, l_{n_{M_n}}\},\, \forall n \in { 1, ..., N }, M_n = \vert L_n\vert
-\end{gather}
+\begin{equation}\label{eq:measurement-space}
+  \begin{aligned}
+  L_n &= \{l_{n_1},\, \dots,\, l_{n_{M_n}}\},\, \forall n \in \{ 1, ..., N \} \\
+  M_n &= \vert L_n\vert \\
+  D &= \bigtimes_{n=1}^{N} L_n \\
+  \end{aligned}
+\end{equation}
 
 For the classification, the following inputs are required:
 
@@ -220,7 +223,7 @@ The cumulative distribution functions will be used to generate pseudo-random num
 \end{equation}
 
 \subsubsection{Measurement Space}
-The measurement space $D$ is the cartesian product of a set of measurements \label{eq:measurement-space}. Every element in $\vec{d} \in D$ is a vector where every value corresponds to a measurement value [Equation \ref{eq:measurements-vector}].
+The measurement space $D$ is the cartesian product of a set of measurements \ref{eq:measurement-space}. Every element in $\vec{d} \in D$ is a vector where every value corresponds to a measurement value [Equation \ref{eq:measurements-vector}].
 
 \begin{equation}\label{eq:measurements-vector}
   \vec{d} = (d_0, ..., d_N), \vec{d}_i \in L_n
@@ -366,7 +369,7 @@ The default case generates $Z = 80$ samples. In $R = 10$ iterations the Expected
 
 \subsection{Testing the Parameters}
 
-Increasing the classifications dimension's size while keeping the rest of the default values generates a decrement in the Expected Gain [Figure \ref{fig:results-K-N2-M2-R10-D001}].
+Increasing the classifications dimension's size while keeping the rest of the default values generates a decrement in the Expected Gain [Figure \ref{fig:default-K-N2-M2-R10-D001}].
 
 \input{figures/default-K-N2-M2-R10-D001}
 
@@ -394,7 +397,7 @@ The measurement space size grows exponentially with the number of values in each
 
 \input{figures/custom-K10-N5-M5-R100-D}
 
-In a hundred iterations, the best Expected Gain achieved is $0.9995150612331569$, using a $\Delta = 0.01$. In a thousand iterations, the Expected Gain raises to $0.9999999999806929$ [Figure \ref{fig:custom-K10-N5-M5-R1000-D001}].
+Over a hundred iterations, the best Expected Gain achieved is $0.9995150612331569$, using a $\Delta = 0.01$. Over a thousand iterations, the Expected Gain raises to $0.9999999999806929$ [Figure \ref{fig:custom-K10-N5-M5-R1000-D001}].
 
 \input{figures/custom-K10-N5-M5-R1000-D001}
 
@@ -425,7 +428,7 @@ The critical step of the classifier is the construction of the Bayes decision ru
 
 The classifier's validation involves generating synthetic datasets based on the conditional probabilities computed by the classifier. During the experimentation phase, and using the Identity Matrix as the Economic Gain Matrix, the classifier's Expected Gain tends to 1.0 when, in repeated iterations, the probabilities are modified, adding small perturbation to the class conditional probabilities. The modification will move the synthetic datasets closer to the Bayes rule decision each time the classifier generates new data.
 
-Multiple experiments run using test-validation sets and V-fold cross-validation, achieving better results in less iteration using the cross-validation approach.
+Multiple experiments run using test-validation sets and V-fold cross-validation, achieving better performance (less iterations needed) using the V-fold approach.
 
 The implementation described in this report does not follow precisely the instructions from the midterm assignment because the interpretation of that instruction did not monotonically increase the Expected Gain. Instead, an alternative is proposed, achieving the monotonic increase desired. The changes involve adding the perturbations to the class conditional probabilities of the assigned class instead of the actual class, as suggested in the assignment.
 
@@ -481,20 +484,20 @@ The Dimension abstraction stores the cardinality, probabilities distribution fun
   \item cdf, the cumulative distribution function
 \end{itemize}
 
-The Space abstraction stores a collection of measurements dimensions \ref{dimensions}. It is in charge of transforming a measurement vector into a linear address and vice-versa. Space is defined by:
+The Space abstraction stores a collection of measurements dimensions [Equation \ref{eq:measurement-space}]. It is in charge of transforming a measurement vector into a linear address and vice-versa. Space is defined by:
 
 \begin{itemize}
-  \item dimensions, a collection of Dimension instances
+  \item dimensions, a collection of dimensions instances, one for each measurement
 \end{itemize}
 
-The DataSet abstraction generates and stores measurement values and the associated classification; all bounded to a specific space and classification labels. A DataSet is defined by: 
+The DataSet abstraction generates and stores measurement values and the associated classification; all bounded to a specific measurement space and classification dimension. A DataSet is defined by:
 
 \begin{itemize}
   \item data, a collection measurement space values
   \item target, a collection of classification labels
 \end{itemize}
 
-The classifier is in charge of the training and improving the class conditional probabilities, determining the Bayes Decision Rule, generating the Confusion Matrix, and calculating the Expected Gain.
+The Classifier is in charge of the training and improving of the class conditional probabilities, determining the Bayes Decision Rule, generating the Confusion Matrix, and calculating the Expected Gain.
 
 \begin{itemize}
   \item space
