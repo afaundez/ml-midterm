@@ -1,0 +1,31 @@
+\pgfplotstableread[row sep=\\,col sep=&]{
+M & EG & T & Z \\
+2 & 0.7389581277559807 & 0.15 & 80e-4 \\
+3 & 0.8307953455501523 & 0.12 & 180e-4 \\
+4 & 0.8200844565839027 & 0.21 & 320e-4 \\
+5 & 0.8950033367636645 & 0.23 & 500e-4 \\
+6 & 0.9182683425246243 & 0.34 & 720e-4 \\
+7 & 0.979591836734694 & 0.38 & 980e-4 \\
+8 & 0.9353759620801088 & 0.50 & 1280e-4 \\
+9 & 0.9263206602702356 & 0.54 & 1620e-4 \\
+10 & 0.9750271916246566 & 0.57 & 2000e-4 \\
+}\expectedgainM
+
+\begin{figure}
+  \begin{tikzpicture}
+    \begin{axis}[
+        xtick={2,3,4,5,6,7,8,9, 10},
+        xlabel=Measurement Cardinality $M$,
+        legend style={at={(0.25,0.6)},anchor=north},
+      ]
+      \addplot table[x=M,y=EG]{\expectedgainM};
+      \addlegendentry{Expected Gain}
+      \addplot table[x=M,y=T]{\expectedgainM};
+      \addlegendentry{Time $[s]$}
+      \addplot table[x=M,y=Z]{\expectedgainM};
+      \addlegendentry{$10^{-4}$ samples}
+    \end{axis}
+  \end{tikzpicture}
+  \caption{Default case: Expected Gain with different amount of values per measurement}
+  \label{fig:results-K2-N2-M-R10-D001}
+\end{figure}

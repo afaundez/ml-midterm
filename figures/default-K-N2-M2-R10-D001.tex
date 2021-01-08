@@ -1,0 +1,31 @@
+\pgfplotstableread[row sep=\\,col sep=&]{
+K & EG & S & T \\
+2 & 0.7389581277559807 & 80e-3 & 0.10 \\
+3 & 0.6433109637953163 & 120e-3 & 0.11 \\
+4 & 0.6084267457343393 & 160e-3 & 0.13 \\
+5 & 0.5776429695321013 & 200e-3 & 0.14 \\
+6 & 0.5837900842550331 & 240e-3 & 0.16 \\
+7 & 0.5066951878117494 & 280e-3 & 0.21 \\
+8 & 0.5272128049007744 & 320e-3 & 0.24 \\
+9 & 0.5117121303660219 & 360e-3 & 0.29 \\
+10 & 0.3578002368124974 & 400e-3 & 0.29 \\
+}\expectedgainK
+
+\begin{figure}
+  \begin{tikzpicture}
+    \begin{axis}[
+        xtick={2,3,4,5,6,7,8,9,10},
+        xlabel=Classifications cardinality $K$,
+        legend pos=north east
+      ]
+      \addplot table[x=K,y=EG]{\expectedgainK};
+      \addlegendentry{Expected Gain}
+      \addplot table[x=K,y=T]{\expectedgainK};
+      \addlegendentry{Time $[s]$}
+      \addplot table[x=K,y=S]{\expectedgainK};
+      \addlegendentry{$10^3$ samples}
+    \end{axis}
+  \end{tikzpicture}
+  \caption{Default case: Expected Gain with different amount of classifications}
+  \label{fig:default-K-N2-M2-R10-D001}
+\end{figure}

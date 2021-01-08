@@ -1,0 +1,23 @@
+\pgfplotstableread[row sep=\\,col sep=&]{
+values & P \\
+0 & 0.9292312236700143 \\
+1 & 0.9472380181770196 \\
+2 & 0.9626641215135652 \\
+3 & 0.9705876858468482 \\
+4 & 0.9716616155668623 \\
+5 & 0.9795243849086763 \\
+6 & 0.982413830364387 \\
+7 & 0.987555034707973 \\
+8 & 0.9951329617314595 \\
+9 & 0.9954753678909362 \\
+}\expectedgain
+
+\begin{figure}
+  \begin{tikzpicture}
+    \begin{axis}
+      \addplot table[x=values,y=P]{\expectedgain};
+    \end{axis}
+  \end{tikzpicture}
+  \caption{}
+  \label{}
+\end{figure}

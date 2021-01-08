@@ -2,31 +2,58 @@
 # frozen_string_literal: true
 
 require_relative '../lib/parser'
-require_relative '../lib/builder'
+require_relative '../lib/dsl'
 
 options = Parser.parse ARGV
 
 srand options.seed if options.seed
 
-space = build_space_from_options options
-train_sets, test_set = build_data_sets_from_options_and_space options, space
-economic_gain_matrix = build_economic_gain_matrix :identity, space.classes.size
+K = options.class_cardinality
+N = options.measurements_cardinality
+M = options.measurement_cardinality
+Z = 10 * (K * (M**N))
+V = options.folds
 
-train_sets.each_with_index do |train_set, iteration|
-  train_set.space = space
-  # space.likelihoods.pretty_print
-  _, expected_gain, confusion_matrix = train_set.train economic_gain_matrix
-  space, accuracy = train_set.improve options.delta
-  # space.likelihoods.pretty_print
-  print "Train\t(#{iteration},#{expected_gain})\t"
-  puts "(#{iteration},#{accuracy})"
+p Z
+
+delta = options.delta
+E = options.experiments
+R = options.repetitions
+
+indent_levels :report, :experiment, :repeat, :adapt, :compare, :summary, :round_robin, :predict
+
+create N.dimensions(each_with: M.values), showing: :summary do |space|
+  create 1.dimension(with: K.values), showing: :summary do |labels|
+    experiment E.times, assigning: labels, within: space, showing: :details do |_, classifier|
+      fit classifier do
+        summary classifier
+        results = repeat R.times do |iteration|
+          if V > 1
+            create Z.samples from: space, to: labels, with: classifier.posteriors, in: V.folds do |folds|
+              round_robin folds do |test, validation|
+                predict using: classifier, with: test.data do |predictions|
+                  adapt classifier, with: test, based_on: predictions, increasing: delta
+                end
+              end
+              # classifier.bayes_rules.pretty_print title: 'end sample'
+              classifier
+            end
+          else
+            create Z.samples from: space, to: labels, with: classifier.posteriors do |test, validation|
+              predict using: classifier, with: test.data do |predictions|
+                # compare predictions, to: test.target, with: labels, showing: true
+                adapt classifier, with: test, based_on: predictions, increasing: delta
+              end
+              classifier
+            end
+          end
+          summary classifier
+          classifier.expected_gain
+        end
+        write_into "figures/test-K#{K}-N#{N}-M#{M}-R#{R}-D#{delta.to_s.gsub('.', '')}-V#{V}-slides.tex" do |file|
+          file.write Vector[*results].to_tex_plot :expectedgain
+        end
+      end
+    end
+  end
 end
-
-test_set.space = space
-# test_set.samples.each { p _1 }
-_, expected_gain, confusion_matrix = test_set.train economic_gain_matrix
-puts 'Confusion Matrix'
-puts confusion_matrix.pretty_print
-space, accuracy = test_set.improve options.delta
-print "Test\t\t\tExpected Gain: #{expected_gain}\t"
-puts "Confusion Matrix Trace: #{confusion_matrix.trace}\tAccuracy: #{accuracy}"

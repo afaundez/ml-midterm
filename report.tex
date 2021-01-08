@@ -1,27 +1,32 @@
 \documentclass[letterpaper, conference]{IEEEtran}
 
 \usepackage{amsmath}
-\DeclareMathOperator*{\argmin}{argmin}
+\usepackage{mathabx}
+\DeclareMathOperator*{\argmax}{argmax}
 
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.5.1}
 
-\usepackage{titlesec}
-\titlespacing*{\subsection}{0pt}{1.1\baselineskip}{\baselineskip}
-\setlength{\parindent}{2em}
+\usetikzlibrary{matrix}
+
 \setlength{\parskip}{0.7em}
 
 \usepackage{url}
 
+\usepackage{listings}
+
+\usepackage{amsfonts}
+
 \begin{document}
 
-\title{ML Midterm Report}
+\title{A Discrete Bayesian Classifier \\
+  \large Machine Learning Midterm Report}
 
 \author{
   \IEEEauthorblockN{Alvaro Faundez}
   \IEEEauthorblockA{
-    \textit{Master in Data Science, first year}\\
-    \textit{CUNY Graduate Center}\\
+    \textit{Master in Data Science's Program, first year student}\\
+    \textit{Graduate Center, CUNY}\\
     \textit{alvaro@faundez.net}
   }
 }
@@ -30,1131 +35,483 @@
 
 \begin{abstract}
 
-The midterm project consists of the implementation of a bayesian classifier. The subroutines include a dataset generator, training based on, and optimization of class conditional probabilities to maximize the expected gain. This report describes the steps that generate pseudo-random probabilities distributions, the dataset generation, the calculation of the Bayes decision rule, confusion matrix, and expected gain. The experimental results show that a 100\% expected gain is achievable in a few optimizations iterations.
+This report details the implementation of a discrete Bayesian classifier. The classifier requirements are a class prior probabilities, the class conditional probabilities, and an Economic Gain Matrix for input. The process calculates the measurement's conditional probabilities needed for the Bayes theorem, and it outputs the Bayes decision rule, the Confusion Matrix, and the Expected Gain Matrix associated with the input used. After completing the classifications for every measurement in a testing sample set, small perturbations are introduced in the measurement conditional probabilities of every misclassification, obtaining an improvement, as expected, in the classifier's Expected Gain (after recalculating all the classifier's outputs). The experiments include the generation of synthetic random samples, and it split them equally sized testing and validation sets, or it uses V-fold Cross-Validation.
 
 \end{abstract}
 
 \section{Introduction}
 
-The Bayesian classifier is a popular predictive classifier broadly used in Machine Learning. Given a set of classes
 
-\begin{equation} \label{classes}
-C = \{c_1, ..., c_K\}
+The discrete Bayesian classifier is a popular predictive classifier broadly used in Machine Learning. It is based on the Bayes Theorem [Equation \ref{eq:bayes-theorem}].
+
+\begin{equation}\label{eq:bayes-theorem}
+  P(A \mid B) = \frac{P(B \mid A)\mathbin{}P(A)}{P(B)}
 \end{equation}
 
-and a measurement space
+A discrete Bayesian classifier, given a set of classifications and a measurement space, uses the Bayes theorem to compute the conditional probabilities and the Bayes rule decision needed to perform classifications. It can be optimized using an Economic Gain Matrix by maximizing the Expected Gain obtained using the Bayes decision rule.
 
-\begin{equation} \label{dimensions}
-D = \times_{n=1}^{N}L_n
+In our case, given a set $C$ of $K$ discrete classifications [Equation \ref{eq:classes-set}] and a discrete measurement space $D$, result of the cartesian product of $N$ discrete measurements $L_n$ [Equation \ref{eq:measurement-space}], the classifier is a function assigning a unique classification $c \in C$ to any measurement $\vec{d} \in D$.
+
+\begin{equation}\label{eq:classes-set}
+C = \{\,c_1,\, \dots,\, c_{K}\,\}
 \end{equation}
 
-the objective is to assign a class $c \in C$ for a specific measurement $d \in D$.
 
-The critical step for the building of the Bayes decision rule is to calculate the posterior probability for a $d$:
-
-\begin{equation} \label{eq:bayes}
-P(c \mid d) \propto P(d \mid c) P(c)
+\begin{equation}\label{eq:measurement-space}
+  \begin{aligned}
+  L_n &= \{l_{n_1},\, \dots,\, l_{n_{M_n}}\},\, \forall n \in \{ 1, ..., N \} \\
+  M_n &= \vert L_n\vert \\
+  D &= \bigtimes_{n=1}^{N} L_n \\
+  \end{aligned}
 \end{equation}
 
-and use the economic gain matrix
+For the classification, the following inputs are required:
 
-\begin{equation}
-  e =
-  \begin{pmatrix}
+\begin{itemize}
+  \item the discrete classification cardinality, $K$
+  \item the cardinalities of each discrete measurement, $M_n,\, n \in N$
+  \item an Economic Gain Matrix, $e^{K \times K}$
+  \item a dataset with $Z$ measurements with matching $Z$ classifications. 
+\end{itemize}
+
+The Economic Gain matrix, $\mathcal{E}$, is a $K \times K$ matrix that defines the gain (or cost) of making the right (or wrong) classifications [Equation \ref{eq:economic-gain-matrix}]. Each row of the matrix represents a true classification, and each column of the matrix will represent an assigned class. Then, every element $e(c_i,\, c_j) \in e$ represent the gain or cost of assigning the class $c_j$ when the true class is $c_i$. Usually, The Economic Gain has positive for every matching classification and non-positive for every other case. The identity matrix is an example of an economic gain matrix.
+
+\begin{equation}\label{eq:economic-gain-matrix}
+  \mathcal{E}^{K \times K} = \begin{pmatrix}
     e(c_1,c_1) & \cdots & e(c_1,c_K) \\
-      \vdots   & \ddots &    \vdots   \\
-    e(c_K,c_1) & \cdots & c(c_K,c_K) 
+      \vdots   & \ddots &   \vdots   \\
+    e(c_K,c_1) & \cdots & e(c_K,c_K)
   \end{pmatrix}
 \end{equation}
 
-to determine the $c_k$ with the highest economic gain
+The Confusion Matrix, $\mathcal{C}$ is as $K \times K$ that tells how correct is the machine learning in the classifier. Each element $P(c_i, c_j)$ in the Confusion Matrix represents the probability that the classifier assigns the classification $c_j$ when in reality the classification is $c_i$ [Equation \ref{eq:confusion-matrix}].
 
-\begin{equation}
-  \argmin_{c_k \in C} \sum_{j = 1}^{K} e(c_j, c_k)P(c_j, d)
+\begin{equation}\label{eq:confusion-matrix}
+  \mathcal{C}^{K \times K} = \begin{pmatrix}
+    P(c_1,c_1) & \cdots & P(c_1,c_K) \\
+      \vdots   & \ddots &   \vdots   \\
+    P(c_K,c_1) & \cdots & P(c_K,c_K)
+  \end{pmatrix}
 \end{equation}
 
-Then, the Bayes decision rule is defined as:
+The economical consequences of the classifier are determined by the Expected Gain Matrix $\mathcal{G}^{K \times K}$. Each element $g$ is the multiplication between the economic gain $e(i,\, j) \in K$ and the probability of the true class $c_i$ being assigned class $c_j$, $P(c_i,\, c_j)$ [Equation \ref{eq:expected-gain-matrix}].
 
-\begin{equation}
-  f_d(c_m) = \left\{
-  \begin{array}{lr}
-  1 & m = k\\
-  0 & m \neq k
-  \end{array}\right\}
+\begin{equation}\label{eq:expected-gain-matrix}
+  \mathcal{G}^{K \times K} = \begin{pmatrix}
+    e(c_1,c_1)P(c_1,c_1) & \cdots & e(c_1,c_K)P(c_1,c_K) \\
+              \vdots    & \ddots &            \vdots     \\
+    e(c_K,c_1)P(c_K,c_1) & \cdots & e(c_K,c_K)P(c_K,c_K)
+  \end{pmatrix}
 \end{equation}
 
-The expected gain $E$, using an economic gain matrix $e$ is define as follows:
+The classifier's Expected Gain is the sum of all the Expected Gain Matrix's elements [Equation \ref{eq:expected-gain}].
 
-\begin{equation}
-  E[e, f] = \sum_{c \in C} \sum_{d \in D}f_d(c)e(c, c)P(c \mid d)
+\begin{equation}\label{eq:expected-gain}
+  E[e] = \sum_{i \in K} \sum_{j \in K}e(c_i,\,c_k)\mathbin{}P(c_i,\,c_k)
 \end{equation}
 
-This report details the implementation of a Bayesian classifier from scratch in the Ruby language, without any external scientific library. The subroutines include
+A critical step in the construction of the classifier is the building of the Bayes decision rule $f_{\vec{d}}:C \longrightarrow \{0, 1\}, \forall \vec{d} \in D$. The goal is to determine the Bayes decision rule that maximizes the Expected Gain classifier, $E[e]$ [Equation \ref{eq:bayes-argmax}]. The Bayes decision rule will assign 1 to the class that maximizes the Expected Gain, and 0 otherwise [Equation \ref{eq:bayes-rule}].
+
+\begin{equation}\label{eq:bayes-argmax}
+  \argmax_{c_k \in C} \sum_{j = 1}^{K} e(c_j, c_k)\mathbin{}P(c_j, \vec{d})
+\end{equation}
+
+\begin{equation}\label{eq:bayes-rule}
+  f_d(c_j) =
+  \begin{cases}
+  1 & j = k \\
+  0 & j \neq k
+  \end{cases}
+\end{equation}
+
+In addition to the Economic Gain Matrix, a Bayes decision rule allows a refinement of the Economic Gain definition [\label{eq:bayes-expected-gain}].
+
+\begin{equation}\label{eq:bayes-expected-gain}
+  E[e, f] = \sum_{i \in K} \sum_{j \in K}\sum_{\vec{d} \in D}f_{\vec{d}}(c_j)\mathbin{}e(c_i,\, c_j)\mathbin{}P(c_i,\,\vec{d})
+\end{equation}
+
+To obtain $f_{\vec{d}}$ and $P(c,\, \vec{d})$, it is necessary to calculate the posterior probability of assigning a class $c$ to measurement $\vec{d}$, $P(c \mid \vec{d})$, using the prior class probability $P(c)$ and the probability of the measurement given the class $P(\vec{d} \mid c)$ [Equation \ref{eq:bayes-theorem-proportional}].
+
+\begin{equation} \label{eq:bayes-theorem-proportional}
+  P(c,\, \vec{d}) \mathbin{\propto} P(\vec{d} \mid c) \mathbin{} P(c)
+\end{equation}
+
+This report details an implementation of a discrete Bayesian classifier used to implement the classifier. A technical overview explains the design and implementation, along with the results of the experiments executed.
+
+The definition and implementation include:
 
 \begin{itemize}
-
-  \item Class and measurement dimensions definitions, including pseudo-random probabilities and cumulative distribution functions
-
-  \item Space definition, calculating linear addresses, class conditional probabilities
- 
-  \item Data set definition, in charge of the prior probabilities, the Bayes decision rule, the confusion matrix, and the expected gain
-
+  \item Classification and measurement dimensions, including pseudo-random probabilities and cumulative distribution functions
+  \item Space definition and linear addresses
+  \item Class prior and conditional probabilities
+  \item Classifier validation
+  \item Dataset definition and generation of pseudo-random synthetic data
 \end{itemize}
 
-These definitions provide tools to train and test using multiple pseudo-random generated datasets. The random seed is configurable by the user to get the same result in any iteration.
-
-The classifier can be optimized after the training, maximizing the expected gain, modifying the class conditional probabilities using, and arbitrary $\Delta$.
-
-The experimental results achieve a 100\% expecting gain after only a couple of iterations.
+The classifier's performance will be measured using the Expected Gain, and it will be tested by adding small perturbations to the class conditional, increasing the Expected Gain monotonically. The process uses Test-Validation sets or V-folds Cross-Validation as validation steps.
 
 \section{Technical}
 
-\subsection{Requirements}
+\subsection{Definitions}
 
-To run the code is necessary a Unix environment with Ruby 2.6+. The code is available on GitHub at \url{https://github.com/afaundez/ml-midterm}.
+In order to explain the implementation, a few concepts need discussion.
 
-To test the command and check the available options run
+\subsubsection{Dimension}
+A dimension is a 1-dimensional set of $M$ correlatives integer numbers from 1 to $K$. Any 1-dimensional $L$ set has a Probability Mass Function $\mathbb{P}$ and a Cumulative Distribution Function $\mathbb{Q}$ [Figure \ref{fig:pmf-cdf}]. The $\mathbb{P}$ set will be created by generating a set $\mathbb{R}$ with $K$ pseudo-random numbers $r_1, ...r_K$ scaled to 1 $p_1, ...r_K$ [Equation \ref{eq:pmf}]. The $\mathbb{Q}$ set is sequence of cumulative sum of the probabilities in $\mathbb{P}$ [Equation \ref{eq:cdf}].
+
+\pgfplotstableread[row sep=\\,col sep=&]{
+value & Probability \\
+1 & 0.07155134805450836 \\
+2 & 0.12997048848822798 \\
+3 & 0.1386944981818227 \\
+4 & 0.04197817941692496 \\
+5 & 0.16869281585900325 \\
+6 & 0.16136757309412517 \\
+7 & 0.03288486428939286 \\
+8 & 0.1571494317575896 \\
+9 & 0.07917145577927193 \\
+10 & 0.0185393450791332 \\
+}\pmf
+
+\pgfplotstableread[row sep=\\,col sep=&]{
+value & Cumulative Probability \\
+1 & 0.07155134805450836 \\
+2 & 0.20152183654273634 \\
+3 & 0.34021633472455903 \\
+4 & 0.382194514141484 \\
+5 & 0.5508873300004873 \\
+6 & 0.7122549030946125 \\
+7 & 0.7451397673840053 \\
+8 & 0.9022891991415949 \\
+9 & 0.9814606549208669 \\
+10 & 1.0 \\
+}\cdf
+
+\begin{figure}
+  \begin{tikzpicture}
+    \begin{axis}[
+      ybar,
+      x label style={at={(axis description cs:0.5,-0.1)}, anchor=north},
+      xlabel={Dimension values},
+      legend pos=north west
+      ]
+      \addplot table[x=value,y=Probability]{\pmf};
+      \addplot table[x=value,y=Cumulative Probability]{\cdf};
+      \addlegendentry{PMF}
+      \addlegendentry{CDF}
+    \end{axis}
+  \end{tikzpicture}
+  \caption{PMF and CDF values for a dimension with 10 possible values}
+  \label{fig:pmf-cdf}
+\end{figure}
+
+\begin{equation}\label{eq:pmf}
+  \begin{aligned}
+  \mathbb{R} &= \{r_1, \dots, r_K\} \\
+  \mathbb{P} &= \Bigl\{p_i \mid p_i = \frac{r_i}{r_{\sum_{i = 1}^{K} r_i}}, r_i \in \mathbb{R} \Bigr\}
+  \end{aligned}
+\end{equation}
+
+\begin{equation}\label{eq:cdf}
+\mathbb{Q} = \Bigl\{q_i \mid q_i = \sum_{j = 1}^{K} p_j, p_j \in \mathbb{P} \Bigr\}
+\end{equation}
+
+The classifications set $C$, and every measurement $L_n$ is a 1-dimensional set with their corresponding probabilities sets.
+
+The cumulative distribution functions will be used to generate pseudo-random numbers in the 1-dimensional space: given a cumulative distribution function $\mathbb{Q}_n$ belonging to the dimension $M_n$, $f_{\mathbb{Q}_n}$ will take a pseudo-random number $r \in [0, 1]$. $f_{\mathbb{Q}_n}$ and assign it the number $m \in M_n$ according to the relative position of $r$ compared with the numbers in $\mathbb{Q}_n$ [Equation \ref{eq:cumulative}].
+
+\begin{equation}\label{eq:cumulative}
+  f_{\mathbb{Q}_n}(r) =
+  \begin{cases}
+  1 & r < q_1 \\
+  m & q_{m - 1} < r \leq q_k,\, m \in M - \{1\} \\
+  \end{cases}
+\end{equation}
+
+\subsubsection{Measurement Space}
+The measurement space $D$ is the cartesian product of a set of $N$ measurements dimensions [Equation \ref{eq:measurement-space}]. Every element in $\vec{d} \in D$ is a vector where every value corresponds to a measurement value [Equation \ref{eq:measurements-vector}].
+
+\begin{equation}\label{eq:measurements-vector}
+  \vec{d} = (d_0, ..., d_N), \vec{d}_i \in L_n
+\end{equation}
+
+\subsubsection{Linear Space}
+Each element in the measurement space can be mapped to a linear space using a bijective function $f_D$ that takes a vector and transform it to an integer value $l \in \mathcal{L}$ [Equation \ref{eq:linear-address}].
+
+\begin{equation}\label{eq:linear-address}
+  \begin{aligned}
+  \mathcal{S} &= \{1,\, 2,\, 3,\, \dots,\, \prod_{i \in N} \mid L_i \mid\} \\
+  f_D&: \bigtimes_{n=1}^{N} L_n \longleftrightarrow \mathcal{S} \\
+  \end{aligned}
+\end{equation}
+
+Every dimension in the measurement space is independent between each other, allowing to compute the probability of every element in the measurement space $P(\vec{d})$ as the multiplication of the probabilities of each measurement value in $\vec{d}$ [Equation \ref{eq:prod:measurements}].
+
+\begin{equation}\label{eq:prod:measurements}
+  P(\vec{d}) = \prod_{i = 1}^{N} P(d_i),\, d_i \in L_i
+\end{equation}
+
+\subsubsection{Classifier}
+The classifier is the function that assigns a classification to a measurement. The classifier lives in the context of a set of classifications, measurement space, and Economic Gain Matrix.
+
+\subsubsection{Dataset}
+A sample dataset is formed by two sets of equal size $Z$: the data $ X = \{x_i \in D \mid i \in [1, Z]\}$ and the target $Y = \{ y_i \in C \mid i \in [1, Z]\}$.
+
+\subsubsection{Experiment}
+An experiment is an isolated routine that takes inputs and produces results. The experiments will define dimensions, classifications, measurement space, classifier, and datasets.
+
+An experiment uses immutable measurement space and classifications until the end of the whole process. That condition will mean that, during an experiment, the cumulative probabilities distribution of every dimension remains unchanged. The experiments will yield a classifier that will over datasets created during the experiment.
+
+\subsubsection{Iteration}
+An iteration within an experiment will enclose the use and modification of the classifier available. Each iteration in a sequence of iterations will include the classifier's changes by the previous iteration and a new dataset.
+
+\subsubsection{Validation}
+An iteration has two kinds of testing and validation processes:
+\begin{itemize}
+  \item Test-Validation sets: The sample dataset will be shuffled and divided into equal-sized subsets. An iteration uses the test subset to predict and adapt; the iteration finishes using the validation set [Equation \ref{eq:test-validation}].
+  \item V-fold sets: The sample dataset will be shuffled and divided into $V$ equal-sized folds. A $V$ round-robin iterations will select a different fold as a validation set, and it will concatenate the resting folds as a testing set [Equation \ref{eq:v-fold}].
+\end{itemize}
+
+\begin{figure}
+  \begin{tikzpicture}
+    \matrix (M) [matrix of nodes,
+        nodes={minimum height = 5mm, minimum width = 2.3cm, outer sep=0, anchor=center, draw},
+        column 1/.style={nodes={draw=none}, minimum width = 2.3cm},
+        row sep=1mm, column sep=-\pgflinewidth, nodes in empty cells,
+        e/.style={fill=blue!10}
+      ]
+      {
+        Iteration & |[e]| & \\
+      };
+    \draw (M-1-2.north west) ++(0,2mm) coordinate (LT) edge[|<->|, >= latex] node[above]{Sample Dataset} (LT-|M-1-3.north east);
+  \end{tikzpicture}
+  \caption{Test-Validation sets, only one iteration.}
+  \label{eq:test-validation}
+\end{figure}
+
+\begin{figure}\label{eq:v-fold}
+  \begin{tikzpicture}
+    \matrix (M) [matrix of nodes,
+        nodes={minimum height = 5mm, minimum width = 1cm, outer sep=0, anchor=center, draw},
+        column 1/.style={nodes={draw=none}, minimum width = 1cm},
+        row sep=1mm, column sep=-\pgflinewidth, nodes in empty cells,
+        e/.style={fill=blue!10}
+      ]
+      {
+        Iteration 1 & |[e]| & & & & \\
+        Iteration 2 & & |[e]| & & & \\
+        Iteration 3 & & & |[e]| & & \\
+        Iteration 4 & & & & |[e]| & \\
+        Iteration 5 & & & & & |[e]| \\
+      };
+    \draw (M-1-2.north west) ++(0,2mm) coordinate (LT) edge[|<->|, >= latex] node[above]{Sample Dataset} (LT-|M-1-6.north east);
+  \end{tikzpicture}
+  \caption{5-fold cross-validation. Each iteration uses the blue fold as validation set and the rest folds as test set.}
+\end{figure}
+  
+
+\subsection{Discrete Bayesian Classifier}
+
+A classifier will assign a classification $c \in C$ to any measurement $\vec{d} \in D$ from the measurement space. Inside the classifier, all measurement will be translated to the corresponding linear address. The following parameters must be set during the initialization of the classifier:
+
+\begin{itemize}
+  \item The list of $S$ linear addresses $l(\vec{d})$ for each $\vec{d} \in D$ [Equation \ref{eq:linear-address}], stored in a $S$ sized vector
+  \item Measurement probability $P(\vec{d})$ for each  $\vec{d} \in D$ [Equation \ref{eq:prod:measurements}], stored in a $S$ sized vector
+  \item Class probability $P(c)$ for each  $c \in C$ [Equation \ref{eq:pmf}], stored in a $K$ sized vector
+  \item Class conditional probabilities $P(\vec{d} \mid c)$. Each class $c \in C$ is assigned a probability mass distribution with $S$ probabilities [Equation \ref{eq:pmf}], stored in a $K \times S$ matrix
+\end{itemize}
+
+Once the classifier is ready, given an Economic Gain Matrix [Equation \ref{eq:economic-gain-matrix}], the classifier computes the values needed to classify a measurement:
+
+\begin{itemize}
+  \item $P(c \mid \vec{d})$, the probabilities of class given a measurement, stored in an $S \times K$ matrix [Equation \ref{eq:bayes-theorem}]
+  \item $P(c,\, \vec{d})$ the probabilities of a class and a measurement, stored in an $S \times K$ matrix [Equation \ref{eq:bayes-theorem-proportional}]
+  \item the Bayes decision rule that optimize the expected gain for the Economic Gain Matrix, stored in an $S \times K$ matrix [Equation \ref{eq:bayes-rule}]
+  \item The Confusion Matrix, stored in an $K \times K$ matrix
+  \item The Expected Gain Matrix, stored in an $K \times K$ matrix [Equation \ref{eq:expected-gain-matrix}]
+  \item The Expected Gain, the trace of the Expected Gain Matrix
+\end{itemize}
+
+The process ends with a discrete Bayesian classifier optimized to maximize Expected Gain, given an Economic Gain Matrix.
+
+\section{Experiment}\label{experiment}
+
+To validate the discrete Bayesian classifier, a series of iteration will modify each measurement's probabilities given a class $P(\vec{d} \mid c$ by adding small perturbations. Each perturbation must increase the Expected Gain monotonically to 1.
+
+Each iteration in the experiment will compute a classifier optimized for a specific Economic Gain Matrix. Using that classifier dataset of $Z$ samples measurements and corresponding classifications, it generates random measurements $\vec{d}$ assigned to random classifications $c$ using probability mass distribution $P(c \mid \vec{d})$. The sample size $Z$ will be 10 times the classifications number times the measurement space [Equation \ref{eq:sample-size}].
+
+\begin{equation}\label{eq:sample-size}
+  Z = 10 \times \mid C \mid \times \prod_{n \in N} |L_n|
+\end{equation}
+
+The classifier assigns a classification to each measurement in the test sample set. Based on those results, the conditional probabilities given a class will be modified, aiming that in the next iteration, the data generated should conform more alike to the classifications. The adaptation follows these steps:
+
+\begin{enumerate}
+  \item For each assigned classification $c'$ made, if the classification is wrong a $\Delta$ perturbation will be added to $P(\vec{d} \mid c')$\footnote{This is different to the steps defined in the midterms slides \cite{midterm-project}. Section \ref{problems} provides further information.}.
+  \item Normalize to 1 each column on the $P(\vec{d} \mid c)$ matrix
+  \item Compute the classifier with the new probabilities
+  \item Return the Expected Gain
+  \item Repeat from step 1
+\end{enumerate}
+
+Each iteration must do the same steps using the updated classifier and yield a higher Expected Gain.
+
+\section{Experiment Results}
+
+A base experiment will have the following default setup:
+
+\begin{itemize}
+  \item $K = 2$ classifications
+  \item $N = 2$ measurements
+  \item $M_n = 2, n \in N$ values for each measurement
+  \item $e^{K \times K} = I_K$ as Economic Gain Matrix
+  \item $\Delta = 0.01$ as a probability perturbation
+  \item $R = 10$ iterations per experiment
+  \item $V = 2$ folds (test/validation cross-validation)
+\end{itemize}
+
+\subsection{Default Setup}
+
+The default case generates $Z = 80$ samples. In $R = 10$ iterations the Expected Gain goes from $0.6217987808286073$ to $0.7389581277559807$.
+
+\subsection{Testing the Parameters}
+
+Increasing the classifications dimension's size while keeping the rest of the default values generates a decrement in the Expected Gain [Figure \ref{fig:default-K-N2-M2-R10-D001}].
+
+\input{figures/default-K-N2-M2-R10-D001}
+
+Increasing the amount of measurements dimensions generates improvements on the Expected Gain but also a notorious increase of the samples generated [Figure \ref{fig:results-K2-N-M2-R10-D001}]
+
+\input{figures/default-K2-N-M2-R10-D001}
+
+Increasing the number of values per measurement generates improvements on the Expected Gain but also a notorious increase in the samples generated [Figure \ref{fig:results-K2-N2-M-R10-D001}]
+
+\input{figures/default-K2-N2-M-R10-D001}
+
+Using $R = 10$ iterations the Expected Gain goes from $0.6217987808286073$ to $0.7389581277559807$. For $R > 400$ the Expected Gain gets stuck in $0.8088281174549596$ [Figure \ref{fig:results-K2-N2-M2-R-D001}]
+
+\input{figures/default-K2-N2-M2-R-D001}
+
+The Expected Gain's increases faster using the default perturbation value $10^{-2}$ than using smaller ones [Figure \ref{fig:results-K2-N2-M2-R10-D}].
+
+\input{figures/default-K2-N2-M2-R10-D}
+
+All examples discussed above use the same probabilities mass distributions when using the same values of $K$, $M$ or $L$. For example, in every case where $K = 2$ the distribution is $P(c) = \begin{pmatrix}0.6137987267145945\\0.3862012732854055\end{pmatrix}$.
+
+\subsection{More classifications, measurements and iterations}
+
+The measurement space size grows exponentially with the number of values in each measurement [Figure \ref{fig:results-K2-N-M2-R10-D001}]. Using $k =10$ classifications, $N = 5$ measurements each one with $M = 5$ values, the sample size has a size of $Z = 312,500$ samples. Running $R = 100$ iterations takes about $1300$ seconds, about $4000$ times the default case time for the same number of iterations. Again, the performance is better with perturbation sized $\Delta = 0.01$ [Figure \ref{fig:custom-K10-N5-M5-R100-D}].
+
+\input{figures/custom-K10-N5-M5-R100-D}
+
+Over a hundred iterations, the best Expected Gain achieved is $0.9995150612331569$, using a $\Delta = 0.01$. Over a thousand iterations, the Expected Gain raises to $0.9999999999806929$ [Figure \ref{fig:custom-K10-N5-M5-R1000-D001}].
+
+\input{figures/custom-K10-N5-M5-R1000-D001}
+
+
+\subsubsection{V-fold cross-validation}
+
+All the previous experiments divided the sample set into a test set and a validation set. V-fold Cross-Validation allows using more data for the testing, producing better results in fewer iterations [Figure \ref{fig:custom-K6-N4-M3-R1000-D001-V}].
+
+\input{figures/custom-K6-N4-M3-R1000-D001-V}
+
+\section{Problems}\label{problems}
+
+Section \ref{experiment}, the experiment definition, explains that the $\Delta$ perturbation modifies to the probability of the measurement $\vec{d}$ given the assigned class $c'$ that differs from the actual class $c$ from the dataset used. The perturbation increases the probability generation of the combination $(c', \vec{d})$ in the dataset of the next iteration, at the expense of any other class $c \neq c'$, making that dataset more alike to the Bayes decision rule.
+
+That differs from the instructions provided in \cite{midterm-project} slide 24, where it is detailed that the perturbation changes the correct class $c$ conditional probability (and not the assigned class $c'$). Using the original instructions, the Expected Gain does not show a monotonic increase as it is supposed to do. Instead, it gets stuck bouncing between different values [Figure \ref{fig:slides-K5-N4-M3-R100-D001-V3}]. An explanation for this could be that it happens because by doing the original step, in every iteration, we force the generation of more samples assigned incorrectly in the previous step, forcing the Bayes rule decision to change its decision in every iteration.
+
+\input{figures/slides-K5-N4-M3-R100-D001-V3}
+
+\section{Conclusions}
+
+This report showed the definition, implementation, and experimentation of a discrete Bayes classifier.
+
+A discrete Bayes classifier involves measurement space formed by multiple discrete measurements. It assigns each measurement a classification based on what the Bayes decision rule determines as the classification that maximizes the classifier's Expectation Gain.
+
+The critical step of the classifier is the construction of the Bayes decision rule. In this report, the probabilities $P(c)$, $P(d \mid c)$, and an Economic Gain Matrix act as the process's input. The classifier reaches its optimum by choosing a Bayes decision rule that maximizes the Expected Gain, based on the Economic Gain Matrix used as input.
+
+The classifier's validation involves generating synthetic datasets based on the conditional probabilities computed by the classifier. During the experimentation phase, and using the Identity Matrix as the Economic Gain Matrix, the classifier's Expected Gain tends to 1.0 when, in repeated iterations, the probabilities are modified, adding small perturbation to the class conditional probabilities. The modification will move the synthetic datasets closer to the Bayes rule decision each time the classifier generates new data.
+
+Multiple experiments run using test-validation sets and V-fold cross-validation, achieving better performance (fewer iterations needed) using the V-fold approach.
+
+The implementation described in this report does not follow precisely the instructions from the midterm assignment because the interpretation of that instruction did not monotonically increase the Expected Gain. Instead, an alternative is proposed, achieving the monotonic increase desired. The changes involve adding the perturbations to the class conditional probabilities of the assigned class instead of the actual class, as suggested in the assignment.
+
+The code developed and used is available at \url{https://github.com/afaundez/ml-midterm}. The appendix describes the concepts in the code.
+
+
+\appendix
+
+To run the code, a Unix environment with Ruby 2.6+ is necessary. The code is available on GitHub at \url{https://github.com/afaundez/ml-midterm}.
+
+To test the command and check the available options run:
 
 \begin{verbatim}
   $ ./midterm --help
 \end{verbatim}
 
-\subsection{options}
+\subsection{Options}
 
-For the purpose of testing, the following parameters are available for configuration
+For testing, the following parameters are available for configuration:
 
-\begin{itemize}
-    \item-s, --seed [INT]                 Pseudo-random seed, an integer. Default: nil
-    \item-c, --classes [INT]              Class cardinality, an integer. Default 2
-    \item-m, --measurements [INT]         Measurements size, an integer. Default 5
-    \item    --measurement-min-cardinality [INT]
-                                     Measurement Min Cardinality, an integer. Default 3
-    \item    --measurement-max-cardinality [INT]
-                                     Measurement Max Cardinality, an integer. Default 6
-    \item    --sample-size [INT]          Sample size, an integer. Default to 10 times the  space addresses size.
-    \item-i, --iterations [INT]           Iterations, an integer. Default 2
-    \item-d, --delta [FLOAT]              Delta for conditionals improvement, a float. Default: 0.01
-    \item    --no-overlap                 Generate classes based on measurements
-    \item    --uniform                    Use uniform distribution on all dimensions
-\end{itemize}
+\begin{lstlisting}[language=sh]
+  Usage: midterm [options]
+    -s [INT] Pseudo-random seed
+    -K [INT] Class cardinality
+    -N [INT] Measurements cardinality
+    -M [INT] Measurement cardinality 
+    -Z [INT] Sample size
+    -R [INT] Iterations
+    -D [FLOAT] Perturbation size
+    -V [FLOAT] Number of folds
+\end{lstlisting}
+
+Example: the command
+
+\begin{lstlisting}[language=sh]
+  bin/midterm -s1 -K2 -N2 -M2 -R10 -D0.01
+\end{lstlisting}
+
+Runs ten iterations using two classifications, two measurements (each one with two values), and add perturbations of 0.01.
 
 \subsection{Runtime}
 
 \subsubsection{Build}
 
-During the build, three significant abstractions are used: Dimension, Space, and DataSet.
+The build uses three significant abstractions: Dimension, Space, and DataSet.
 
-The Dimension abstraction is meant to store the cardinality, probabilities distribution function, and cumulative distribution function of a single measurement or class. A dimension does not store values, but it can be used to generate random values using the distribution functions. A Dimension is defined by:
+The Dimension abstraction stores the cardinality, probabilities distribution function, and cumulative distribution function of a single measurement or class. A dimension does not store values, but it can generate random values using the distribution functions. A Dimension is defined by:
 
 \begin{itemize}
   \item size
-  \item pdf, generated based on the size
-  \item cdf, generate based on the pdf
-  \item distribution, whether to use random or uniform distribution
+  \item pmf, the probability mass function
+  \item cdf, the cumulative distribution function
 \end{itemize}
 
-The Space abstraction stores the single class dimension \ref{classes}, the collection of measurements dimensions \ref{dimensions}, and the class conditional probabilities. Since the Space knows all the dimensions specifications, it is in charge of translating and measurement into a linear address and vice-versa. A Space is defined by:
+The Space abstraction stores a collection of measurements dimensions [Equation \ref{eq:measurement-space}]. It is in charge of transforming a measurement vector into a linear address and vice-versa. Space is defined by:
 
 \begin{itemize}
-\item class\_dimension, a Dimension instance
-\item measurements\_dimensions, a collection of Dimension instances
-\item likelihoods, random pdfs
+  \item dimensions, a collection of dimensions instances, one for each measurement
 \end{itemize}
 
-The DataSet abstraction is in charge of generating and store measurement values and the associated class, all bounded to a specific space. Since it has access to the data and space, it is in charge of the training and improving the class conditional probabilities, determining the Bayes Decision Rule, generating the Confusion Matrix, and calculating the Expected Gain. It is relevant that at creating the measurements, the prior class probabilities are calculated and stored in the DataSet. A DataSet is defined by:
-    
-\begin{itemize}
-\item size
-\item space, a Space instance
-\item samples, a collection of collections of measurements
-\item class\_outcomes, counter of classes for prior class probabilities calculation
-\item overlap, whether to assign classes with overlap
-\end{itemize}
-
-The Economic Gain Matrix is generated in this step. Even though it is a method, currently, the only matrix available is the identity matrix.
-
-\subsubsection{Training}
-
-Once a set of DataSet is created, the test DataSet is picked and left isolated, and the rest is used as train DataSet.
-
-The training process consists of two steps: using an economic gain matrix as input, outputs the Bayes decision rule, and the expected gain. Then, using the Bayes decision rule, it generates the confusion matrix.
-
-
-At the end of this process, the Space associated with the DataSet will store the measurement conditional probabilities $P(c \mid d)$ targeted in \ref{eq:bayes}.
-
-\subsection{Optimization}
-
-Now that the space is trained and the measurement conditional probabilities have been processed, using the delta as input, the dataset can improve the class conditional probabilities using the test DataSet. For each mismatched classification, the corresponding class conditional probability is incremented by the delta input, and the measurement probabilities are normalized to 1. This process yields an updated Space and accuracy obtained.
-
-\section{Experimental Results}
-
-Even though it is not a strict test, it is good to do a sanity check with a dummy case: one feature, one value measurement. It is expected to have an expected gain of 1.0 and an accuracy of 1.0.
-
-Running
-
-\begin{verbatim}
-  bin/midterm --classes 1 --measurements 1
-\end{verbatim}
-
-yields, as expected,
-
-\begin{verbatim}
-Economic Gain Matrix
-+---+
-| 1 |
-+---+
-
-Train 0.
-  Expected Gain: 1.0
-  Confusion Matrix Trace: 1.0
-  Accuracy: 1.0
-Confusion Matrix
-+-----+
-| 1.0 |
-+-----+
-
-Test
-  Expected Gain: 1.0
-  Confusion Matrix Trace: 1.0
-  Accuracy: 1.0
-\end{verbatim}
-
-
-The next step is to check the results using. Let us use two classes, five values measurements, and ten training sets, and start setting the seed number in order to have replicable experiments.
-
-\subsection{First results}
-
-\begin{verbatim}
-  bin/midterm --classes 2 --measurements 5 \
-    --iterations 10 --seed 1234
-\end{verbatim}
-
-The expected gain and accuracy do not seem to be correct
-
-\vspace{1cm}
-\begin{tikzpicture}
-\begin{axis}[
-    title=\textbf{10 training iterations results 2 classes},
-    xlabel={Iterations},
-    xmin=0, xmax=10,
-    ymin=0.0, ymax=1,
-    xtick={0,2,4,6,8,10},
-    ytick={0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0},
-    legend pos=south west,
-    ymajorgrids=true,
-    grid style=dashed,
-]
-
-\addplot[color=blue, mark=square]
-  coordinates {
-    (0, 0.7510161862543873)
-    (1, 0.7920788037709293)
-    (2, 0.7514642101011255)
-    (3, 0.7704808259436531)
-    (4, 0.7649375191939426)
-    (5, 0.776186768335381)
-    (6, 0.7621880262547054)
-    (7, 0.7662678293114988)
-    (8, 0.766369437713792)
-    (9, 0.7543597171481017)
-  };
-  \addlegendentry{Expected Gain}
-
-\addplot[color=red, mark=square]
-  coordinates {
-    (0, 0.690625)
-    (1, 0.64375)
-    (2, 0.578125)
-    (3, 0.653125)
-    (4, 0.696875)
-    (5, 0.765625)
-    (6, 0.69375)
-    (7, 0.7375)
-    (8, 0.753125)
-    (9, 0.709375)
-  };
-  \addlegendentry{Accuracy}
-    
-\end{axis}
-\end{tikzpicture}
-\vspace{1cm}
-
-Incrementing the training iterations to 100 does not make real improvements; it keeps going up and down.
-
-\vspace{1cm}
-\begin{tikzpicture}
-\begin{axis}[
-    title=\textbf{100 training iterations results 2 classes},
-    xlabel={Iterations},
-    xmin=0, xmax=100,
-    ymin=0.0, ymax=1,
-    xtick={0,20,40,60,80,100},
-    ytick={0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0},
-    legend pos=north west,
-    ymajorgrids=true,
-    grid style=dashed,
-]
-
-\addplot[color=blue, mark=dot]
-  coordinates {
-    (0,0.7510161862543873)
-    (1,0.7920788037709293)
-    (2,0.7514642101011255)
-    (3,0.7704808259436531)
-    (4,0.7649375191939426)
-    (5,0.776186768335381)
-    (6,0.7621880262547054)
-    (7,0.7662678293114988)
-    (8,0.766369437713792)
-    (9,0.7543597171481017)
-    (10,0.7706252669070704)
-    (11,0.7677486854798666)
-    (12,0.775107105978118)
-    (13,0.7594228327421679)
-    (14,0.7677920561126736)
-    (15,0.7818246469717948)
-    (16,0.7875)
-    (17,0.7315601669135878)
-    (18,0.7818142947781787)
-    (19,0.7576822006522522)
-    (20,0.7891927339222548)
-    (21,0.8080828660665679)
-    (22,0.808291232475898)
-    (23,0.7731074214835443)
-    (24,0.7661685725706955)
-    (25,0.7795960922267542)
-    (26,0.7534918836091349)
-    (27,0.804382002795244)
-    (28,0.8101265043180191)
-    (29,0.7423507571843759)
-    (30,0.7748956360257283)
-    (31,0.7783760561971604)
-    (32,0.7563671770160953)
-    (33,0.7794164114191516)
-    (34,0.7548549972084373)
-    (35,0.6985936048835456)
-    (36,0.7540787594223081)
-    (37,0.7423220518369233)
-    (38,0.7414790690273345)
-    (39,0.7399310419882174)
-    (40,0.7461861573924471)
-    (41,0.7726672440595368)
-    (42,0.7875930169360047)
-    (43,0.771875)
-    (44,0.7478136145141515)
-    (45,0.7375)
-    (46,0.7046454035552939)
-    (47,0.7485827502762095)
-    (48,0.721875)
-    (49,0.746875)
-    (50,0.7718750000000001)
-    (51,0.7762767921268567)
-    (52,0.742722038380545)
-    (53,0.7576363133297808)
-    (54,0.719379621732634)
-    (55,0.753125)
-    (56,0.7587679107898118)
-    (57,0.7784285726715959)
-    (58,0.7454963471675674)
-    (59,0.7535354049383377)
-    (60,0.8031249999999999)
-    (61,0.7296744616178817)
-    (62,0.7679177662206217)
-    (63,0.8042096987034367)
-    (64,0.7658365604343714)
-    (65,0.7589832786098533)
-    (66,0.7459872520612136)
-    (67,0.7844529837554968)
-    (68,0.7264501536949466)
-    (69,0.7569805135737274)
-    (70,0.7562980808006607)
-    (71,0.7897104955862423)
-    (72,0.7650199909263249)
-    (73,0.825)
-    (74,0.7596274552431364)
-    (75,0.7615740117441012)
-    (76,0.7545261883433753)
-    (77,0.7390097447410758)
-    (78,0.7888259823660361)
-    (79,0.7611479809409623)
-    (80,0.7800389919957694)
-    (81,0.8000670614704873)
-    (82,0.7695309172984911)
-    (83,0.7358039227270565)
-    (84,0.8009030565080281)
-    (85,0.7723536586165068)
-    (86,0.7456604882424223)
-    (87,0.765625)
-    (88,0.7726276557725134)
-    (89,0.7722226522650084)
-    (90,0.7686710071464256)
-    (91,0.7747661534177785)
-    (92,0.7744289026320158)
-    (93,0.7652564770408778)
-    (94,0.7579334212203201)
-    (95,0.7624714461070612)
-    (96,0.8327829938086287)
-    (97,0.8156250000000002)
-    (98,0.7682514790928694)
-    (99,0.7899015704803447)
-  };
-  \addlegendentry{Expected Gain}
-
-\addplot[color=red]
-  coordinates {
-    (0,0.690625)
-    (1,0.64375)
-    (2,0.578125)
-    (3,0.653125)
-    (4,0.696875)
-    (5,0.765625)
-    (6,0.69375)
-    (7,0.7375)
-    (8,0.753125)
-    (9,0.709375)
-    (10,0.7375)
-    (11,0.6875)
-    (12,0.725)
-    (13,0.703125)
-    (14,0.709375)
-    (15,0.7625)
-    (16,0.7875)
-    (17,0.65625)
-    (18,0.690625)
-    (19,0.6875)
-    (20,0.759375)
-    (21,0.775)
-    (22,0.771875)
-    (23,0.678125)
-    (24,0.69375)
-    (25,0.746875)
-    (26,0.634375)
-    (27,0.71875)
-    (28,0.796875)
-    (29,0.675)
-    (30,0.74375)
-    (31,0.728125)
-    (32,0.715625)
-    (33,0.775)
-    (34,0.740625)
-    (35,0.678125)
-    (36,0.73125)
-    (37,0.70625)
-    (38,0.678125)
-    (39,0.653125)
-    (40,0.5875)
-    (41,0.7375)
-    (42,0.765625)
-    (43,0.771875)
-    (44,0.740625)
-    (45,0.7375)
-    (46,0.6375)
-    (47,0.728125)
-    (48,0.721875)
-    (49,0.746875)
-    (50,0.771875)
-    (51,0.78125)
-    (52,0.715625)
-    (53,0.734375)
-    (54,0.671875)
-    (55,0.753125)
-    (56,0.703125)
-    (57,0.74375)
-    (58,0.703125)
-    (59,0.725)
-    (60,0.803125)
-    (61,0.653125)
-    (62,0.74375)
-    (63,0.771875)
-    (64,0.7)
-    (65,0.725)
-    (66,0.7375)
-    (67,0.775)
-    (68,0.615625)
-    (69,0.659375)
-    (70,0.65625)
-    (71,0.775)
-    (72,0.696875)
-    (73,0.825)
-    (74,0.6875)
-    (75,0.725)
-    (76,0.721875)
-    (77,0.7)
-    (78,0.771875)
-    (79,0.74375)
-    (80,0.725)
-    (81,0.79375)
-    (82,0.746875)
-    (83,0.653125)
-    (84,0.803125)
-    (85,0.740625)
-    (86,0.721875)
-    (87,0.765625)
-    (88,0.659375)
-    (89,0.70625)
-    (90,0.696875)
-    (91,0.7375)
-    (92,0.7125)
-    (93,0.7125)
-    (94,0.6875)
-    (95,0.621875)
-    (96,0.803125)
-    (97,0.815625)
-    (98,0.65)
-    (99,0.703125)
-  };
-  \addlegendentry{Accuracy}
-    
-\end{axis}
-\end{tikzpicture}
-\vspace{1cm}
-
-To identify the reason of these results, two options were added to the application, one to control the overlap in the class assignment to a measurement and how the probability distribution is generated.
-
-\subsection{Probability distributions}
-
-Since the method used to generate the probability distribution function for a dimension does not generate even probabilities for each value in the dimension, a parameter $--uniform$ was added to revert this and generate uniform distribution for the classes and measurement. The hypothesis was that by generating numbers evenly, the results would easier to understand.
-
-Now, repeating the previous commands with the new parameter:
-
-\begin{verbatim}
-  bin/midterm --classes 2 --measurements 5 \
-    --iterations 10 --seed 1234 \
-    --uniform
-\end{verbatim}
-
-\vspace{1cm}
-\begin{tikzpicture}
-\begin{axis}[
-    title=\textbf{10 training iterations results 2 classes uniform},
-    xlabel={Iterations},
-    xmin=0, xmax=10,
-    ymin=0.0, ymax=1,
-    xtick={0,2,4,6,8,10},
-    ytick={0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0},
-    legend pos=north west,
-    ymajorgrids=true,
-    grid style=dashed,
-]
-
-\addplot[color=blue, mark=square]
-  coordinates {
-    (0,0.6593504287948415)
-    (1,0.6322952653288357)
-    (2,0.6442318074145162)
-    (3,0.643532034044156)
-    (4,0.6374052549173173)
-    (5,0.6670332218794528)
-    (6,0.641154535217185)
-    (7,0.6422862876918007)
-    (8,0.6569850006437995)
-    (9,0.6526304654809094)
-  };
-  \addlegendentry{Expected Gain}
-
-\addplot[color=red, mark=square]
-  coordinates {
-    (0,0.51875)
-    (1,0.540625)
-    (2,0.51875)
-    (3,0.521875)
-    (4,0.490625)
-    (5,0.478125)
-    (6,0.534375)
-    (7,0.4875)
-    (8,0.51875)
-    (9,0.51875)
-  };
-  \addlegendentry{Accuracy}
-    
-\end{axis}
-\end{tikzpicture}
-\vspace{1cm}
-
-The expected gain does not seem to be improving, but the accuracy is set around $0.5$. It could be a sign that accuracy is bouncing between that particular number because now each class has the same probability of being assign to a measurement. Using 100 training iterations, the result is similar.
-
-\vspace{1cm}
-\begin{tikzpicture}
-\begin{axis}[
-    title=\textbf{100 training iterations results 2 classes uniform},
-    xlabel={Iterations},
-    xmin=0, xmax=100,
-    ymin=0.0, ymax=1,
-    xtick={0,20,40,60,80,100},
-    ytick={0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0},
-    legend pos=north west,
-    ymajorgrids=true,
-    grid style=dashed,
-]
-
-\addplot[color=blue, mark=dot]
-  coordinates {
-    (0,0.6593504287948415)
-    (1,0.6322952653288357)
-    (2,0.6442318074145162)
-    (3,0.643532034044156)
-    (4,0.6374052549173173)
-    (5,0.6670332218794528)
-    (6,0.641154535217185)
-    (7,0.6422862876918007)
-    (8,0.6569850006437995)
-    (9,0.6526304654809094)
-    (10,0.6546187941166898)
-    (11,0.643475265753768)
-    (12,0.6351244529764057)
-    (13,0.6440720167792894)
-    (14,0.6543635532964378)
-    (15,0.6530730475972332)
-    (16,0.6420652888245892)
-    (17,0.6386933525793097)
-    (18,0.656131766987587)
-    (19,0.6404145019838194)
-    (20,0.6554970068445349)
-    (21,0.6584519948176737)
-    (22,0.6561351500294403)
-    (23,0.6465710312484481)
-    (24,0.626949097769329)
-    (25,0.6684014850794588)
-    (26,0.6483354163282329)
-    (27,0.6599595111517538)
-    (28,0.6425754096484391)
-    (29,0.6620319415019925)
-    (30,0.6414724731267122)
-    (31,0.6298445580096735)
-    (32,0.6574631542543048)
-    (33,0.636646465705065)
-    (34,0.652624576567283)
-    (35,0.6411972586281364)
-    (36,0.6534335196235858)
-    (37,0.6393938870373085)
-    (38,0.6509773178827621)
-    (39,0.6490233939471659)
-    (40,0.643113898351353)
-    (41,0.6607874477644926)
-    (42,0.6471172254570899)
-    (43,0.654665306156185)
-    (44,0.6411259548443401)
-    (45,0.6688035174036389)
-    (46,0.6527749164324254)
-    (47,0.6451812873875673)
-    (48,0.6609176253324267)
-    (49,0.6455335437954625)
-    (50,0.642030208545801)
-    (51,0.6625253099129024)
-    (52,0.6448123479184392)
-    (53,0.6573237510186837)
-    (54,0.6660459563843424)
-    (55,0.6347781754371478)
-    (56,0.6607545630657751)
-    (57,0.653058954580872)
-    (58,0.6504531480193392)
-    (59,0.6496864896714141)
-    (60,0.6450361030416386)
-    (61,0.6584978551443268)
-    (62,0.656776335109375)
-    (63,0.6360751668081185)
-    (64,0.6484932840997125)
-    (65,0.6473239417545021)
-    (66,0.6334378696365125)
-    (67,0.666011299572501)
-    (68,0.6307919371924887)
-    (69,0.6792398937360165)
-    (70,0.6280587830300347)
-    (71,0.6494227084162714)
-    (72,0.6421450141129107)
-    (73,0.6592853024018064)
-    (74,0.6438241420702857)
-    (75,0.6390998573461351)
-    (76,0.6531458725375711)
-    (77,0.6668077654917725)
-    (78,0.6381550986287792)
-    (79,0.630587235329701)
-    (80,0.6536501637107353)
-    (81,0.6321964946958653)
-    (82,0.6543359998085868)
-    (83,0.6341080534790973)
-    (84,0.6351134667290098)
-    (85,0.6659623301074993)
-    (86,0.640896953425713)
-    (87,0.6535639491294327)
-    (88,0.6430701364374961)
-    (89,0.6456856464475672)
-    (90,0.6463538396337825)
-    (91,0.6468890996036903)
-    (92,0.636325143508721)
-    (93,0.6551562243985622)
-    (94,0.6470567257969099)
-    (95,0.6525617299247326)
-    (96,0.6433204718667557)
-    (97,0.6617591734108166)
-    (98,0.6517035403538808)
-    (99,0.652466037775164)
-  };
-  \addlegendentry{Expected Gain}
-
-\addplot[color=red]
-  coordinates {
-    (0,0.51875)
-    (1,0.540625)
-    (2,0.51875)
-    (3,0.521875)
-    (4,0.490625)
-    (5,0.478125)
-    (6,0.534375)
-    (7,0.4875)
-    (8,0.51875)
-    (9,0.51875)
-    (10,0.5375)
-    (11,0.521875)
-    (12,0.521875)
-    (13,0.496875)
-    (14,0.496875)
-    (15,0.5125)
-    (16,0.51875)
-    (17,0.48125)
-    (18,0.50625)
-    (19,0.5125)
-    (20,0.478125)
-    (21,0.521875)
-    (22,0.49375)
-    (23,0.553125)
-    (24,0.478125)
-    (25,0.4625)
-    (26,0.4375)
-    (27,0.48125)
-    (28,0.496875)
-    (29,0.521875)
-    (30,0.56875)
-    (31,0.490625)
-    (32,0.490625)
-    (33,0.490625)
-    (34,0.521875)
-    (35,0.528125)
-    (36,0.528125)
-    (37,0.475)
-    (38,0.46875)
-    (39,0.528125)
-    (40,0.475)
-    (41,0.496875)
-    (42,0.55)
-    (43,0.5)
-    (44,0.490625)
-    (45,0.51875)
-    (46,0.54375)
-    (47,0.471875)
-    (48,0.525)
-    (49,0.5375)
-    (50,0.496875)
-    (51,0.528125)
-    (52,0.49375)
-    (53,0.478125)
-    (54,0.51875)
-    (55,0.51875)
-    (56,0.46875)
-    (57,0.49375)
-    (58,0.540625)
-    (59,0.525)
-    (60,0.48125)
-    (61,0.478125)
-    (62,0.5375)
-    (63,0.525)
-    (64,0.471875)
-    (65,0.51875)
-    (66,0.49375)
-    (67,0.5375)
-    (68,0.428125)
-    (69,0.534375)
-    (70,0.521875)
-    (71,0.54375)
-    (72,0.509375)
-    (73,0.50625)
-    (74,0.53125)
-    (75,0.475)
-    (76,0.45625)
-    (77,0.503125)
-    (78,0.565625)
-    (79,0.484375)
-    (80,0.5125)
-    (81,0.4875)
-    (82,0.5375)
-    (83,0.56875)
-    (84,0.471875)
-    (85,0.51875)
-    (86,0.484375)
-    (87,0.553125)
-    (88,0.50625)
-    (89,0.471875)
-    (90,0.509375)
-    (91,0.5375)
-    (92,0.50625)
-    (93,0.50625)
-    (94,0.453125)
-    (95,0.5125)
-    (96,0.471875)
-    (97,0.49375)
-    (98,0.490625)
-    (99,0.50625)
-  };
-  \addlegendentry{Accuracy}
-    
-\end{axis}
-\end{tikzpicture}
-\vspace{1cm}
-
-Checking with 3 classes, the accuracy bounce around $0.33$ as expected:
-
-\vspace{1cm}
-\begin{tikzpicture}
-\begin{axis}[
-    title=\textbf{10 training iterations results 3 classes uniform},
-    xlabel={Iterations},
-    xmin=0, xmax=10,
-    ymin=0.0, ymax=1,
-    xtick={0,2,4,6,8,10},
-    ytick={0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0},
-    legend pos=north west,
-    ymajorgrids=true,
-    grid style=dashed,
-]
-
-\addplot[color=blue, mark=square]
-  coordinates {
-    (0,0.49030720940283623)
-    (1,0.44981632400021265)
-    (2,0.4547041815965567)
-    (3,0.42997913323401304)
-    (4,0.46058465918279856)
-    (5,0.4286678527092858)
-    (6,0.45617940847773764)
-    (7,0.44363621005504705)
-    (8,0.4309883206227871)
-    (9,0.43138157298087754)
-  };
-  \addlegendentry{Expected Gain}
-
-\addplot[color=red, mark=square]
-  coordinates {
-    (0,0.3875)
-    (1,0.33125)
-    (2,0.3625)
-    (3,0.290625)
-    (4,0.35)
-    (5,0.3375)
-    (6,0.3125)
-    (7,0.375)
-    (8,0.321875)
-    (9,0.31875)
-  };
-  \addlegendentry{Accuracy}
-    
-\end{axis}
-\end{tikzpicture}
-\vspace{1cm}
-
-\subsection{Class overlapping}
-
-To understand if the accuracies shown in the previous steps are determined by the number of classes and the overlapping caused by an assignation independent from the measurements, it was added to the program the option to avoid the overlap and assign a class based on the norm of the measurement vector. This is an arbitrary assignment chosen just by the simplicity and certainty of the assignment's uniqueness.
-
-using the new parameter
-
-\begin{verbatim}
-  bin/midterm --classes 2 --measurements 5 \
-    --iterations 10 --seed 1234 \
-    --no-overlap
-\end{verbatim}
-
-\vspace{1cm}
-\begin{tikzpicture}
-\begin{axis}[
-    title=\textbf{10 training iterations results 2 classes no overlapping},
-    xlabel={Iterations},
-    xmin=0, xmax=10,
-    ymin=0.9, ymax=1,
-    xtick={0,2,4,6,8,10},
-    ytick={0.9,1.0},
-    legend pos=south west,
-    ymajorgrids=true,
-    grid style=dashed,
-]
-
-\addplot[color=blue, mark=square]
-  coordinates {
-    (0,0.9845253073815597)
-    (1,0.9781249999999999)
-    (2,0.98125)
-    (3,0.9937500000000001)
-    (4,0.9875000000000002)
-    (5,0.971875)
-    (6,0.9843750000000001)
-    (7,0.9843750000000001)
-    (8,0.9875000000000002)
-    (9,0.9843750000000001)
-  };
-  \addlegendentry{Expected Gain}
-
-\addplot[color=red, mark=square]
-  coordinates {
-    (0,0.959375)
-    (1,0.978125)
-    (2,0.98125)
-    (3,0.99375)
-    (4,0.9875)
-    (5,0.971875)
-    (6,0.984375)
-    (7,0.984375)
-    (8,0.9875)
-    (9,0.984375)
-  };
-  \addlegendentry{Accuracy}
-    
-\end{axis}
-\end{tikzpicture}
-\vspace{1cm}
-
-Now the expected gain is considerably higher, and trying with 100 iterations stays close to 1.0.
-
-\vspace{1cm}
-\begin{tikzpicture}
-\begin{axis}[
-    title=\textbf{100 training iterations results 2 classes uniform},
-    xlabel={Iterations},
-    xmin=0, xmax=100,
-    ymin=0.9, ymax=1,
-    xtick={0,20,40,60,80,100},
-    ytick={0.9,1.0},
-    legend pos=south west,
-    ymajorgrids=true,
-    grid style=dashed,
-]
-
-\addplot[color=blue, mark=dot]
-  coordinates {
-    (0,0.9845253073815597)
-    (1,0.9781249999999999)
-    (2,0.98125)
-    (3,0.9937500000000001)
-    (4,0.9875000000000002)
-    (5,0.971875)
-    (6,0.9843750000000001)
-    (7,0.9843750000000001)
-    (8,0.9875000000000002)
-    (9,0.9843750000000001)
-    (10,0.9843750000000001)
-    (11,0.9875000000000002)
-    (12,0.9781250000000001)
-    (13,0.98125)
-    (14,0.98125)
-    (15,0.9843750000000001)
-    (16,0.9875000000000002)
-    (17,0.9843750000000001)
-    (18,0.9843750000000001)
-    (19,0.9937500000000001)
-    (20,0.98125)
-    (21,0.98125)
-    (22,0.9843750000000001)
-    (23,0.98125)
-    (24,0.98125)
-    (25,0.9843750000000001)
-    (26,0.9875000000000002)
-    (27,0.9781250000000001)
-    (28,0.9875000000000002)
-    (29,0.98125)
-    (30,0.9906250000000001)
-    (31,0.9843750000000001)
-    (32,0.98125)
-    (33,0.9875000000000002)
-    (34,0.9875000000000002)
-    (35,0.9875000000000002)
-    (36,0.9937500000000001)
-    (37,0.9937500000000001)
-    (38,0.98125)
-    (39,0.9937500000000001)
-    (40,0.975)
-    (41,0.98125)
-    (42,0.971875)
-    (43,0.98125)
-    (44,0.9618008249288758)
-    (45,0.9968750000000001)
-    (46,0.9843750000000001)
-    (47,0.9781250000000001)
-    (48,0.9843750000000001)
-    (49,0.98125)
-    (50,0.9843750000000001)
-    (51,0.9843750000000001)
-    (52,0.9875000000000002)
-    (53,0.98125)
-    (54,0.9937500000000001)
-    (55,0.9843750000000001)
-    (56,0.98125)
-    (57,0.9781250000000001)
-    (58,0.9875000000000002)
-    (59,0.9781250000000001)
-    (60,0.9875000000000002)
-    (61,0.9937500000000001)
-    (62,0.9968750000000001)
-    (63,0.975)
-    (64,0.96875)
-    (65,0.9906250000000001)
-    (66,0.9875000000000002)
-    (67,0.98125)
-    (68,0.9968750000000001)
-    (69,0.9968750000000001)
-    (70,0.9906250000000001)
-    (71,0.9843750000000001)
-    (72,0.9875000000000002)
-    (73,0.9781250000000001)
-    (74,0.9937500000000001)
-    (75,0.9781250000000001)
-    (76,0.98125)
-    (77,0.98125)
-    (78,0.9781250000000001)
-    (79,0.9875000000000002)
-    (80,0.98125)
-    (81,0.9906250000000001)
-    (82,0.965625)
-    (83,0.9781250000000001)
-    (84,0.98125)
-    (85,0.9968750000000001)
-    (86,0.9843750000000001)
-    (87,0.9937500000000001)
-    (88,0.9937500000000001)
-    (89,0.971875)
-    (90,0.9906250000000001)
-    (91,0.9843750000000001)
-    (92,0.9875000000000002)
-    (93,0.9781250000000001)
-    (94,0.9906250000000001)
-    (95,0.9906250000000001)
-    (96,0.9843750000000001)
-    (97,0.975)
-    (98,0.9875000000000002)
-    (99,0.9875000000000002)
-  };
-  \addlegendentry{Expected Gain}
-
-\addplot[color=red]
-  coordinates {
-    (0,0.959375)
-    (1,0.978125)
-    (2,0.98125)
-    (3,0.99375)
-    (4,0.9875)
-    (5,0.971875)
-    (6,0.984375)
-    (7,0.984375)
-    (8,0.9875)
-    (9,0.984375)
-    (10,0.984375)
-    (11,0.9875)
-    (12,0.978125)
-    (13,0.98125)
-    (14,0.98125)
-    (15,0.984375)
-    (16,0.9875)
-    (17,0.984375)
-    (18,0.984375)
-    (19,0.99375)
-    (20,0.98125)
-    (21,0.98125)
-    (22,0.984375)
-    (23,0.98125)
-    (24,0.98125)
-    (25,0.984375)
-    (26,0.9875)
-    (27,0.978125)
-    (28,0.9875)
-    (29,0.98125)
-    (30,0.990625)
-    (31,0.984375)
-    (32,0.98125)
-    (33,0.9875)
-    (34,0.9875)
-    (35,0.9875)
-    (36,0.99375)
-    (37,0.99375)
-    (38,0.98125)
-    (39,0.99375)
-    (40,0.975)
-    (41,0.98125)
-    (42,0.971875)
-    (43,0.98125)
-    (44,1.0)
-    (45,0.996875)
-    (46,0.984375)
-    (47,0.978125)
-    (48,0.984375)
-    (49,0.98125)
-    (50,0.984375)
-    (51,0.984375)
-    (52,0.9875)
-    (53,0.98125)
-    (54,0.99375)
-    (55,0.984375)
-    (56,0.98125)
-    (57,0.978125)
-    (58,0.9875)
-    (59,0.978125)
-    (60,0.9875)
-    (61,0.99375)
-    (62,0.996875)
-    (63,0.975)
-    (64,0.96875)
-    (65,0.990625)
-    (66,0.9875)
-    (67,0.98125)
-    (68,0.996875)
-    (69,0.996875)
-    (70,0.990625)
-    (71,0.984375)
-    (72,0.9875)
-    (73,0.978125)
-    (74,0.99375)
-    (75,0.978125)
-    (76,0.98125)
-    (77,0.98125)
-    (78,0.978125)
-    (79,0.9875)
-    (80,0.98125)
-    (81,0.990625)
-    (82,0.965625)
-    (83,0.978125)
-    (84,0.98125)
-    (85,0.996875)
-    (86,0.984375)
-    (87,0.99375)
-    (88,0.99375)
-    (89,0.971875)
-    (90,0.990625)
-    (91,0.984375)
-    (92,0.9875)
-    (93,0.978125)
-    (94,0.990625)
-    (95,0.990625)
-    (96,0.984375)
-    (97,0.975)
-    (98,0.9875)
-    (99,0.9875)
-  };
-  \addlegendentry{Accuracy}
-    
-\end{axis}
-\end{tikzpicture}
-\vspace{1cm}
-
-\section{Conclusions}
-
-This report shows a Bayes classifier written from scratch in Ruby without any scientific library, following the theory and instructions provided during the Machine Learning class.
-
-The program includes definitions and abstractions for Dimension, Space, and DataSet that can be configured with optional parameters through the command line to create classes, measurement, and training sets.
-
-The initial results were not the one expected, showing low and bouncing expected gains and accuracy. As a way to explain these behaviors, two paths were developed
+The DataSet abstraction generates and stores measurement values and the associated classification, all bounded to a specific measurement space and classification dimension. A DataSet is defined by:
 
 \begin{itemize}
-  \item First, create the dimensions for classes and measurements using uniform probability distribution functions, expecting more recognizable numbers. The method worked, and it allowed us to determine that the accuracy was inversely proportional to the classes' cardinality.
-  \item Then, with the conclusion from the previous step, it was introduced an option to assign a class to a specific measurement without overlapping. The norm of the measurement vector was the method used, and it produced a considerable impact on the expected gain and accuracy, reaching values over $0.99$ in both parameters.
+  \item data, a collection measurement space values
+  \item target, a collection of classification labels
 \end{itemize}
 
-Although some aspects of the value could have been explained with the overlapping of classes, it remains inconclusive why the expected gain and accuracy are not reaching 1.0 or why it does not stop bouncing.
+The classifier is in charge of the training and improving the class conditional probabilities, determining the Bayes Decision Rule, generating the Confusion Matrix, and calculating the Expected Gain.
+
+\begin{itemize}
+  \item space
+  \item labels (classification dimensions)
+  \item expected gain matrix (default to the identity matrix)
+\end{itemize}
+
+Using the Ruby language characteristics, the solution provides dynamic specific language specifically created for this problem. As with almost every code in Ruby, it came with a performance trade-off, but it attempts to make the code more human-readable.
+
+The code has also implemented routines to calculate prior and conditional probabilities from a dataset, and they also can be provided as input by a user. Nevertheless, all examples in this report used synthetic probabilities and datasets.
 
 \begin{thebibliography}{2}
 
@@ -1168,7 +525,11 @@ Robert M. Haralick,
 \textit{Midterm Project}
 \\\texttt{\url{http://haralick.org/ML/midterm_project.pdf}}
 
+\bibitem{requisite-variety}
+Robert M. Haralick,
+\textit{Requisite Variety}
+\\\texttt{\url{http://haralick.org/ML/requisite_variety.pdf}}
+
 \end{thebibliography}
 
 \end{document}
-  

@@ -5,18 +5,22 @@ require 'optparse'
 DEFAULTS = {
   seed: nil,
   class_cardinality: 2,
-  measurements_size: 2,
+  measurements_cardinality: 3,
+  measurement_cardinality: 4,
   measurement_min_cardinality: 2,
-  measurement_max_cardinality: 2,
-  iterations: 1,
+  measurement_max_cardinality: 4,
+  experiments: 1,
   delta: 0.01,
   sample_size: nil,
   overlap: true,
-  distribution: :random
-}
+  distribution: :random,
+  folds: 3,
+  repetitions: 1
+}.freeze
 
 Options = Struct.new(*DEFAULTS.keys)
 
+# Parse command line options
 class Parser
   def self.parse(args)
     options = Options.new(*DEFAULTS.values)
@@ -28,40 +32,44 @@ class Parser
         options.seed = value.to_i
       end
 
-      opts.on('-c', '--classes [INT]', 'Class cardinality. Default 2') do |value|
+      opts.on('-K', '--classes [INT]', 'Class cardinality. Default 2') do |value|
         options.class_cardinality = value.to_i
       end
 
-      opts.on('-m', '--measurements [INT]', 'Measurements size. Default 5') do |value|
-        options.measurements_size = value.to_i
+      opts.on('-N', '--measurements-cardinality [INT]', 'Measurements Cardinality. Default 3') do |value|
+        options.measurements_cardinality = value.to_i
       end
 
-      opts.on('--measurement-min-cardinality [INT]', 'Measurement Min Cardinality. Default 3') do |value|
+      opts.on('-M', '--measurement-cardinality [INT]', 'Cardinality for all measurements. Default 4') do |value|
+        options.measurement_cardinality = value.to_i
+      end
+
+      opts.on('--measurement-min-cardinality [INT]', 'Min Cardinality for all measurements. Default 2') do |value|
         options.measurement_min_cardinality = value.to_i
       end
 
-      opts.on('--measurement-max-cardinality [INT]', 'Measurement Max Cardinality. Default 6') do |value|
+      opts.on('--measurement-max-cardinality [INT]', 'Max Cardinality for all measurements. Default 4') do |value|
         options.measurement_max_cardinality = value.to_i
       end
 
-      opts.on('--sample-size [INT]', 'Sample size. Default space.addresses.size * 10') do |value|
+      opts.on('-Z', '--sample-size [INT]', 'Sample size. Default space.addresses.size * 10') do |value|
         options.sample_size = value.to_i
       end
 
-      opts.on('-i', '--iterations [INT]', 'Iterations. Default 2') do |value|
-        options.iterations = value.to_i
+      opts.on('-e', '--experiments [INT]', 'Experiments. Each experiment create a new classifier. Default 1') do |value|
+        options.experiments = value.to_i
       end
 
-      opts.on('-d', '--delta [FLOAT]', 'Delta. Default: 0.01') do |value|
+      opts.on('-R', '--repetitions [INT]', 'Repetitions. Default 1') do |value|
+        options.repetitions = value.to_i
+      end
+
+      opts.on('-D', '--delta [FLOAT]', 'Delta. Default: 0.01') do |value|
         options.delta = value.to_f
       end
 
-      opts.on('--no-overlap', 'Generate classes based on measurements') do |value|
-        options.overlap = false
-      end
-
-      opts.on('--uniform', 'Use uniform distribution on all dimensions') do |value|
-        options.distribution = :uniform
+      opts.on('-V', '--folds [FLOAT]', 'Number of Folds. Default: 3') do |value|
+        options.folds = value.to_i
       end
 
       opts.on('-h', '--help', 'Prints this help') do
@@ -71,6 +79,6 @@ class Parser
     end
 
     opt_parser.parse!(args)
-    return options
+    options
   end
 end
