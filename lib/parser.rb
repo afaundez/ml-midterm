@@ -14,7 +14,7 @@ DEFAULTS = {
   sample_size: nil,
   overlap: true,
   distribution: :random,
-  k_folds: 10,
+  folds: 3,
   repetitions: 1
 }.freeze
 
@@ -66,6 +66,10 @@ class Parser
 
       opts.on('-D', '--delta [FLOAT]', 'Delta. Default: 0.01') do |value|
         options.delta = value.to_f
+      end
+
+      opts.on('-V', '--folds [FLOAT]', 'Number of Folds. Default: 3') do |value|
+        options.folds = value.to_i
       end
 
       opts.on('-h', '--help', 'Prints this help') do

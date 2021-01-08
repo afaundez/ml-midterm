@@ -1,75 +1,31 @@
 \pgfplotstableread[row sep=\\,col sep=&]{
-values & P \\
-0 & 0.6217987808286073 \\
-1 & 0.6434589581321546 \\
-2 & 0.6584925180705914 \\
-3 & 0.6733906405321053 \\
-4 & 0.6879017987738398 \\
-5 & 0.7008581900611026 \\
-6 & 0.7106736380059988 \\
-7 & 0.721965746261189 \\
-8 & 0.731272428889093 \\
-9 & 0.7389581277559807 \\
-}\expectedgaincenti
-
-\pgfplotstableread[row sep=\\,col sep=&]{
-values & P \\
-0 & 0.6137987267145945 \\
-1 & 0.6137987267145945 \\
-2 & 0.6137987267145943 \\
-3 & 0.614054830134284 \\
-4 & 0.6152165593472926 \\
-5 & 0.6161483510408458 \\
-6 & 0.6170681848943043 \\
-7 & 0.6181824597016432 \\
-8 & 0.6191439887513687 \\
-9 & 0.6199583837680757 \\
-}\expectedgainmili
-
-\pgfplotstableread[row sep=\\,col sep=&]{
-values & P \\
-0 & 0.6137987267145945 \\
-1 & 0.6137987267145945 \\
-2 & 0.6137987267145945 \\
-3 & 0.6137987267145945 \\
-4 & 0.6137987267145945 \\
-5 & 0.6137987267145943 \\
-6 & 0.6137987267145946 \\
-7 & 0.6137987267145946 \\
-8 & 0.6137987267145945 \\
-9 & 0.6137987267145945 \\
-}\expectedgaindecimili
-
-\pgfplotstableread[row sep=\\,col sep=&]{
-values & P \\
-0 & 0.6137987267145943 \\
-1 & 0.6137987267145945 \\
-2 & 0.6137987267145945 \\
-3 & 0.6137987267145946 \\
-4 & 0.6137987267145945 \\
-5 & 0.6137987267145945 \\
-6 & 0.6137987267145945 \\
-7 & 0.6137987267145943 \\
-8 & 0.6137987267145943 \\
-9 & 0.6137987267145946 \\
-}\expectedgaincentimili
+values & d001 & d0001 & d00001 \\
+1 & 0.6217987808286073 & 0.6137987267145945 & 0.6137987267145945 \\
+2 & 0.6434589581321546 & 0.6137987267145945 & 0.6137987267145945 \\
+3 & 0.6584925180705914 & 0.6137987267145943 & 0.6137987267145945 \\
+4 & 0.6733906405321053 & 0.614054830134284 & 0.6137987267145945 \\
+5 & 0.6879017987738398 & 0.6152165593472926 & 0.6137987267145945 \\
+6 & 0.7008581900611026 & 0.6161483510408458 & 0.6137987267145943 \\
+7 & 0.7106736380059988 & 0.6170681848943043 & 0.6137987267145946 \\
+8 & 0.721965746261189 & 0.6181824597016432 & 0.6137987267145946 \\
+9 & 0.731272428889093 & 0.6191439887513687 & 0.6137987267145945 \\
+10 & 0.7389581277559807 & 0.6199583837680757 & 0.6137987267145945 \\
+}\expectedgain
 
 \begin{figure}
   \begin{tikzpicture}
     \begin{axis}[
-        xtick={0,1,2,3,4,5,6,7,8,9},
-        xlabel=Iteration,
+        xtick={1,2,3,4,5,6,7,8,9,10},
+        xlabel=Iteration Number,
         ylabel=Expected Gain,
         legend pos=north west
       ]
-      \addplot table[x=values,y=P]{\expectedgaincenti};
-      \addlegendentry{$\Delta = 1 \times 10^{-2}$}
-      \addplot table[x=values,y=P]{\expectedgainmili};
-      \addlegendentry{$\Delta = 1 \times 10^{-3}$}
-      \addplot table[x=values,y=P]{\expectedgaindecimili};
-      \addlegendentry{$\Delta = 1 \times 10^{-4}$}
-      \addplot table[x=values,y=P]{\expectedgaincentimili};
-      \addlegendentry{$\Delta = 1 \times 10^{-5}$}
+      \addplot table[x=values,y=d001]{\expectedgain};
+      \addlegendentry{$\Delta = 10^{-2}$}
+      \addplot table[x=values,y=d0001]{\expectedgain};
+      \addlegendentry{$\Delta = 10^{-3}$}
+      \addplot table[x=values,y=d00001]{\expectedgain};
+      \addlegendentry{$\Delta = 10^{-4}$}
     \end{axis}
   \end{tikzpicture}
   \caption{Default case: Expected Gain increasing in each iteration using different sizes of $\Delta$ perturbations}

@@ -12,7 +12,7 @@ K = options.class_cardinality
 N = options.measurements_cardinality
 M = options.measurement_cardinality
 Z = 10 * (K * (M**N))
-V = 2
+V = options.folds
 
 p Z
 
@@ -26,28 +26,31 @@ create N.dimensions(each_with: M.values), showing: :summary do |space|
   create 1.dimension(with: K.values), showing: :summary do |labels|
     experiment E.times, assigning: labels, within: space, showing: :details do |_, classifier|
       fit classifier do
+        summary classifier
         results = repeat R.times do |iteration|
-          # create Z.samples from: space, to: labels, with: classifier.posteriors, in: V.folds do |folds|
-          #   round_robin folds do |test, validation|
-          #     predict using: classifier, with: test.data do |predictions|
-          #       adapt classifier, with: test, based_on: predictions, increasing: delta
-          #     end
-          #   end
-          #   # classifier.bayes_rules.pretty_print title: 'end sample'
-          #   classifier
-          # end
-          create Z.samples from: space, to: labels, with: classifier.posteriors do |test, validation|
-            predict using: classifier, with: test.data do |predictions|
-              compare predictions, to: test.target, with: labels, showing: true
-              adapt classifier, with: test, based_on: predictions, increasing: delta
+          if V > 1
+            create Z.samples from: space, to: labels, with: classifier.posteriors, in: V.folds do |folds|
+              round_robin folds do |test, validation|
+                predict using: classifier, with: test.data do |predictions|
+                  adapt classifier, with: test, based_on: predictions, increasing: delta
+                end
+              end
+              # classifier.bayes_rules.pretty_print title: 'end sample'
+              classifier
             end
-            classifier
+          else
+            create Z.samples from: space, to: labels, with: classifier.posteriors do |test, validation|
+              predict using: classifier, with: test.data do |predictions|
+                # compare predictions, to: test.target, with: labels, showing: true
+                adapt classifier, with: test, based_on: predictions, increasing: delta
+              end
+              classifier
+            end
           end
           summary classifier
           classifier.expected_gain
         end
-        write_into "figures/test-K#{K}-N#{N}-M#{M}-R#{R}-D#{delta.to_s.gsub('.', '')}.tex" do |file|
-          file.write classifier.priors.to_tex_plot :priors, kind: :bars
+        write_into "figures/test-K#{K}-N#{N}-M#{M}-R#{R}-D#{delta.to_s.gsub('.', '')}-V#{V}-slides.tex" do |file|
           file.write Vector[*results].to_tex_plot :expectedgain
         end
       end

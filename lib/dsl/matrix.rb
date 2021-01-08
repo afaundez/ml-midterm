@@ -12,7 +12,7 @@ class Vector
   def to_tex_data(label, kind: :line)
     <<~TEX
     \\pgfplotstableread[row sep=\\\\,col sep=&]{
-    values & \P \\\\
+    values & P \\\\
     #{each_with_index.collect { |pr, c| [c, pr].join(' & ') }.join(" \\\\\n")} \\\\
     }\\#{label}
     TEX
@@ -21,11 +21,15 @@ class Vector
   def to_tex_plot(label, kind: :line)
     <<~TEX
     #{to_tex_data label}
-    \\begin{tikzpicture}
-      \\begin{axis}#{"[ybar]" if kind == :bars}
-        \\addplot table[x=values,y=\P]{\\#{label}};
-      \\end{axis}
-    \\end{tikzpicture}
+    \\begin{figure}
+      \\begin{tikzpicture}
+        \\begin{axis}#{"[ybar]" if kind == :bars}
+          \\addplot table[x=values,y=P]{\\#{label}};
+        \\end{axis}
+      \\end{tikzpicture}
+      \\caption{}
+      \\label{}
+    \\end{figure}
     TEX
   end
 end

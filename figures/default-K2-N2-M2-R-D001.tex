@@ -1,0 +1,28 @@
+\pgfplotstableread[row sep=\\,col sep=&]{
+R & EG & T & Z \\
+10 & 0.7389581277559807 & 0.10e-2 & 80e-2 \\
+100 & 0.8088012884426641 &  0.25e-2 & 80e-2 \\
+200 &  0.8088281124010486 & 0.4e-2 & 80e-2 \\
+300 & 0.8088281174539913 & 0.57e-2 & 80e-2 \\
+400 & 0.8088281174549596 & 0.72e-2 & 80e-2 \\
+500 & 0.8088281174549596 & 0.85e-2 & 80e-2 \\
+}\expectedgainR
+
+\begin{figure}
+  \begin{tikzpicture}
+    \begin{axis}[
+        xtick={10,100,200,300,400,500},
+        xlabel=Number of iterations $R$,
+        legend style={at={(0.25,0.6)},anchor=north},
+      ]
+      \addplot table[x=R,y=EG]{\expectedgainR};
+      \addlegendentry{Expected Gain}
+      \addplot table[x=R,y=T]{\expectedgainR};
+      \addlegendentry{Time $10^{-1}[s]$}
+      \addplot table[x=R,y=Z]{\expectedgainR};
+      \addlegendentry{$10^{-1}$ samples}
+    \end{axis}
+  \end{tikzpicture}
+  \caption{Default case: Expected Gain with different number of iterations}
+  \label{fig:results-K2-N2-M2-R-D001}
+\end{figure}
